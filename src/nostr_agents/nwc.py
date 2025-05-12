@@ -177,6 +177,8 @@ def makeInvoice(nwc_obj, amt, desc):
         "params": {
             "amount": amt * 1000,
             "description": desc,
+        } if amt else {
+            "description": desc,
         }
     })
     emsg = encrypt(nwc_obj["app_privkey"], nwc_obj["wallet_pubkey"], msg);

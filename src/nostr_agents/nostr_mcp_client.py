@@ -28,21 +28,8 @@ class NostrMCPClient(object):
 
     def list_tools(self) -> dict[str, Any] | None:
         """Retrieve available tools"""
-        thr = threading.Thread(
-            target=self.client.send_direct_message_to_pubkey,
-            args=(self.mcp_pubkey, json.dumps({
-                'action': 'list_tools'
-            })),
-        )
-        thr.start()
-        res = [None]
-        self.client.direct_message_listener(
-            callback=self._set_result_callback(res),
-            recipient_pubkey=self.mcp_pubkey,
-            timeout=2,
-            close_after_first_message=True
-        )
-        return res[0]
+        metadata = self.client.get_metadata_for_pubkey(self.mcp_pubkey)
+        return json.loads(metadata.about)
 
     def call_tool(
         self,

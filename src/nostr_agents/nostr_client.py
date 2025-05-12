@@ -1,6 +1,7 @@
 from typing import List, Any, Optional, Callable
 import logging
 import uuid
+import time
 
 from pynostr.base_relay import RelayPolicy
 from pynostr.key import PrivateKey
@@ -12,6 +13,9 @@ from pynostr.encrypted_dm import EncryptedDirectMessage
 from pynostr.metadata import Metadata
 from pynostr.event import Event
 from pynostr.utils import get_public_key, get_timestamp
+
+from nostr_agents.nwc_client import NWCClient
+
 
 logging.basicConfig(level=logging.WARNING)  # Set the minimum logging level
 
@@ -27,18 +31,18 @@ class NostrClient(object):
     def __init__(self,
                  relays: List[str],
                  private_key: str,
-                 nwc_str: str,
+                 nwc_str: str = None,
                  ):
         """
         Initialize the NostrClient with a list of relays, private key, and NWC string.
         :param relays: List of relay URLs.
         :param private_key: nsec private key.
-        :param nwc_str: Nostr Wallet Connection string.
+        :param nwc_str: Nostr Wallet Connection string (optional).
         """
         self.relays = relays
         self.private_key = PrivateKey.from_nsec(private_key)
         self.public_key = self.private_key.public_key
-        self.nwc_str = nwc_str
+        self.nwc_client = NWCClient(nwc_str) if nwc_str else None
 
     def sign(self, event: Event):
         """Sign the event with the private key."""
@@ -88,6 +92,7 @@ class NostrClient(object):
             event_msg = relay_manager.message_pool.get_event()
             logger.info(event_msg.event.to_dict())
             messages.append(event_msg.event.to_dict())
+        relay_manager.close_subscription_on_all_relays(subscription_id)
 
         if len(messages) > 0:
             latest_metadata: dict = sorted(messages, key=lambda x: x['created_at'], reverse=True)[0]
@@ -107,6 +112,9 @@ class NostrClient(object):
                         display_name: Optional[str] = None,
                         website: Optional[str] = None):
         previous_metadata = self.get_metadata_for_pubkey(self.public_key)
+
+        print(f"Previous metadata: {previous_metadata}")
+
         metadata = previous_metadata or Metadata()
         if name:
             metadata.name = name
@@ -129,9 +137,14 @@ class NostrClient(object):
         if website:
             metadata.website = website
 
+        metadata.created_at = int(time.time())
+        metadata.compute_id()
+
         event = self.sign(metadata.to_event())
 
-        relay_manager = self.get_relay_manager()
+        print(f"Event to be sent: {event}")
+
+        relay_manager = self.get_relay_manager(timeout=10)
 
         relay_manager.publish_event(event)
         relay_manager.run_sync()

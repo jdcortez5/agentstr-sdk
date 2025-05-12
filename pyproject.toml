@@ -9,6 +9,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
+    "a2a",
+    "bolt11>=2.1.1",
     "mcp[cli]>=1.6.0",
     "pycryptodome==3.10.1",
     "pynostr[websocket-client]>=0.6.2",
@@ -19,6 +21,9 @@ readme = "README.md"
 [build-system]
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+a2a = { git = "https://github.com/google/A2A.git", subdirectory = "a2a-python-sdk", rev = "ceeefac0dc37a847a2f3227fc00b117adf4825e1" }
 
 [project.urls]
 Homepage = "https://github.com/ehallmark/nostr-agent-tools"

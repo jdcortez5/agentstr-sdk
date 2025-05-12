@@ -11,7 +11,8 @@ from mcp.server.fastmcp.tools.tool_manager import ToolManager
 
 
 class NostrMCPServer(object):
-    def __init__(self, nostr_client: NostrClient):
+    def __init__(self, display_name: str, nostr_client: NostrClient):
+        self.display_name = display_name
         self.client = nostr_client
         self.tool_manager = ToolManager()
 
@@ -25,13 +26,15 @@ class NostrMCPServer(object):
             description=description
         )
 
-    def list_tools(self) -> list[dict[str, Any]]:
+    def list_tools(self) -> dict[str, Any]:
         """Define available tools"""
-        return [{
-            "name": tool.name,
-            "description": tool.description,
-            "inputSchema": tool.parameters
-        } for tool in self.tool_manager.list_tools()]
+        return {
+            "tools": [{
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.parameters
+            } for tool in self.tool_manager.list_tools()]
+        }
 
     def call_tool(
         self,
@@ -57,9 +60,8 @@ class NostrMCPServer(object):
         try:
             request = json.loads(message)
             if request['action'] == 'list_tools':
-                response = {
-                    "tools": self.list_tools()
-                }
+                response = self.list_tools()
+
             elif request['action'] == 'call_tool':
                 tool_name = request['tool_name']
                 arguments = request['arguments']
@@ -92,6 +94,22 @@ class NostrMCPServer(object):
         thr.start()
 
     def start(self):
+        # Update list_tools metadata
+        thr = threading.Thread(
+            target=self.client.update_metadata,
+            kwargs={
+                'name': 'mcp_server',
+                'display_name': self.display_name,
+                'about': json.dumps(self.list_tools())
+            }
+        )
+        print(f'Updating metadata for {self.client.public_key.bech32()}')
+        thr.start()
+        time.sleep(5)
+
+        print(f'Starting message listener for {self.client.public_key.bech32()}')
+
+        # Start call_tool listener
         self.client.direct_message_listener(
             callback=self._direct_message_callback
         )
@@ -134,7 +152,7 @@ if __name__ == "__main__":
 
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, nwc_str)
-    server = NostrMCPServer(client)
+    server = NostrMCPServer("Evan's MCP Server", client)
     server.add_tool(add)  # Add by signature alone
     server.add_tool(multiply, name="multiply", description="Multiply two numbers")  # Add by signature and name
     server.add_tool(get_weather)  # Add by signature alone
