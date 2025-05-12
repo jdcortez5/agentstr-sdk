@@ -187,20 +187,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fastapi"
-version = "0.115.12"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "starlette" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/55/ae499352d82338331ca1e28c7f4a63bfd09479b16395dce38cf50a39e2c2/fastapi-0.115.12.tar.gz", hash = "sha256:1e2c2a2646905f9e83d32f04a3f86aff4a286669c6c950ca95b5fd68c2602681", size = 295236 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/b3/b51f09c2ba432a576fe63758bddc81f78f0c6309d9e5c10d194313bf021e/fastapi-0.115.12-py3-none-any.whl", hash = "sha256:e94613d6c05e27be7ffebdd6ea5f388112e5e430c8f7d6494a9d1d88d43e814d", size = 95164 },
-]
-
-[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -304,22 +290,22 @@ wheels = [
 [[package]]
 name = "nostr-agent-tools"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
-    { name = "fastapi" },
     { name = "mcp", extra = ["cli"] },
+    { name = "pycryptodome" },
     { name = "pynostr", extra = ["websocket-client"] },
     { name = "python-dotenv" },
-    { name = "uvicorn" },
+    { name = "secp256k1" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115.12" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
+    { name = "pycryptodome", specifier = "==3.10.1" },
     { name = "pynostr", extras = ["websocket-client"], specifier = ">=0.6.2" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
-    { name = "uvicorn", specifier = ">=0.34.2" },
+    { name = "secp256k1", specifier = ">=0.14.0" },
 ]
 
 [[package]]
@@ -329,6 +315,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1d/b2/31537cf4b1ca988837256c910a668b553fceb8f069bedc4b1c826024b52c/pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6", size = 172736 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/a3/a812df4e2dd5696d1f351d58b8fe16a405b234ad2886a0dab9183fb78109/pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc", size = 117552 },
+]
+
+[[package]]
+name = "pycryptodome"
+version = "3.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/7f/740b99ffb8173ba9d20eb890cc05187677df90219649645aca7e44eb8ff4/pycryptodome-3.10.1.tar.gz", hash = "sha256:3e2e3a06580c5f190df843cdb90ea28d61099cf4924334d5297a995de68e4673", size = 3762120 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/c7/afb27683063b669a15c6599fe5ac8678020acf9e9ab6739cb8ef969255fe/pycryptodome-3.10.1-cp35-abi3-macosx_10_9_x86_64.whl", hash = "sha256:31c1df17b3dc5f39600a4057d7db53ac372f492c955b9b75dd439f5d8b460129", size = 1454793 },
+    { url = "https://files.pythonhosted.org/packages/27/e9/d3926cbac277c0a46b24b248b2d742ff46851d1726c8adb2e0c26758d5d5/pycryptodome-3.10.1-cp35-abi3-manylinux1_i686.whl", hash = "sha256:a3105a0eb63eacf98c2ecb0eb4aa03f77f40fbac2bdde22020bb8a536b226bb8", size = 2034920 },
+    { url = "https://files.pythonhosted.org/packages/af/ef/bedde9b7a1f237b743eb307e6c247369c2ae5ca6a79b61c064698cfd78cd/pycryptodome-3.10.1-cp35-abi3-manylinux1_x86_64.whl", hash = "sha256:a92d5c414e8ee1249e850789052608f582416e82422502dc0ac8c577808a9067", size = 1923195 },
+    { url = "https://files.pythonhosted.org/packages/fa/46/fc3cdba27fd2989ce08a874a327c4587922faf258cc4bf3b07a20bfdd6fa/pycryptodome-3.10.1-cp35-abi3-manylinux2010_i686.whl", hash = "sha256:60386d1d4cfaad299803b45a5bc2089696eaf6cdd56f9fc17479a6f89595cfc8", size = 2034922 },
+    { url = "https://files.pythonhosted.org/packages/ad/16/9627ab0493894a11c68e46000dbcc82f578c8ff06bc2980dcd016aea9bd3/pycryptodome-3.10.1-cp35-abi3-manylinux2010_x86_64.whl", hash = "sha256:501ab36aae360e31d0ec370cf5ce8ace6cb4112060d099b993bc02b36ac83fb6", size = 1923200 },
+    { url = "https://files.pythonhosted.org/packages/e1/e5/f30cf194e17a7b07f58e1944595497e6167e3aae90b545ccca0ce8dad09e/pycryptodome-3.10.1-cp35-abi3-manylinux2014_aarch64.whl", hash = "sha256:fc7489a50323a0df02378bc2fff86eb69d94cc5639914346c736be981c6a02e7", size = 1477864 },
+    { url = "https://files.pythonhosted.org/packages/ff/bc/d212f3665ca89437523741662e9219cbd77eb15e70dbc79ce3fab5800ba6/pycryptodome-3.10.1-cp35-abi3-win32.whl", hash = "sha256:9b6f711b25e01931f1c61ce0115245a23cdc8b80bf8539ac0363bdcf27d649b6", size = 1589960 },
+    { url = "https://files.pythonhosted.org/packages/f1/0b/bf5bd5a7643af6265205c06027ada49e853f26b3d3a0fd7e3baf19098876/pycryptodome-3.10.1-cp35-abi3-win_amd64.whl", hash = "sha256:7fd519b89585abf57bf47d90166903ec7b43af4fe23c92273ea09e6336af5c07", size = 1604200 },
 ]
 
 [[package]]
@@ -470,6 +472,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/a1/53/830aa4c3066a8ab0a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/9b/63f4c7ebc259242c89b3acafdb37b41d1185c07ff0011164674e9076b491/rich-14.0.0-py3-none-any.whl", hash = "sha256:1c9491e1951aac09caffd42f448ee3d04e58923ffe14993f6e83068dc395d7e0", size = 243229 },
 ]
+
+[[package]]
+name = "secp256k1"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9b/41/bb668a6e4192303542d2d90c3b38d564af3c17c61bd7d4039af4f29405fe/secp256k1-0.14.0.tar.gz", hash = "sha256:82c06712d69ef945220c8b53c1a0d424c2ff6a1f64aee609030df79ad8383397", size = 2420607 }
 
 [[package]]
 name = "shellingham"
