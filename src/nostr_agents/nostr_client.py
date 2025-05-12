@@ -12,7 +12,6 @@ from pynostr.encrypted_dm import EncryptedDirectMessage
 from pynostr.metadata import Metadata
 from pynostr.event import Event
 from pynostr.utils import get_public_key, get_timestamp
-from tornado.ioloop import IOLoop
 
 logging.basicConfig(level=logging.DEBUG)  # Set the minimum logging level
 

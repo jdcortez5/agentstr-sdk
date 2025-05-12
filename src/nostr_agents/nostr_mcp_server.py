@@ -1,7 +1,6 @@
 import threading
 from typing import Callable, Any
 import json
-import asyncio
 import time
 
 from pynostr.event import Event
@@ -124,11 +123,29 @@ if __name__ == "__main__":
         print(f'Multiply {a} and {b}')
         return a * b
 
+    def get_weather(city: str) -> str:
+        """Gets the weather for a city"""
+        if city.lower() in {'portland', 'seattle', 'vancouver'}:
+            return 'rainy'
+        else:
+            return 'sunny'
+
+    def get_current_date() -> str:
+        """Gets today's date"""
+        return time.strftime("%Y-%m-%d")
+
+    def get_current_time() -> str:
+        """Gets the time of day"""
+        return time.strftime("%H:%M:%S")
+
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, nwc_str)
     server = NostrMCPServer(client)
     server.add_tool(add)  # Add by signature alone
     server.add_tool(multiply, name="multiply", description="Multiply two numbers")  # Add by signature and name
+    server.add_tool(get_weather)  # Add by signature alone
+    server.add_tool(get_current_date)  # Add by signature alone
+    server.add_tool(get_current_time)  # Add by signature alone
 
     server.start()
 
