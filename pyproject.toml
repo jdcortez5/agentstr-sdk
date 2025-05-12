@@ -1,8 +1,13 @@
 [project]
 name = "nostr-agent-tools"
 version = "0.1.0"
-description = "Add your description here"
+description = "Model Context Protocol (MCP) communication through NOSTR."
 requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
 dependencies = [
     "mcp[cli]>=1.6.0",
     "pycryptodome==3.10.1",
@@ -10,8 +15,11 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "secp256k1>=0.14.0",
 ]
-
-
+readme = "README.md"
 [build-system]
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/ehallmark/nostr-agent-tools"
+Issues = "https://github.com/ehallmark/nostr-agent-tools/issues"
