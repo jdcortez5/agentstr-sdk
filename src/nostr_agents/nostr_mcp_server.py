@@ -63,29 +63,26 @@ class NostrMCPServer(object):
             elif request['action'] == 'call_tool':
                 tool_name = request['tool_name']
                 arguments = request['arguments']
-                try:
-                    result = self.call_tool(tool_name, arguments)
-                    response = {
-                        "content": {
-                            "type": "text",
-                            "text": str(result)
-                        }
-                    }
-                except Exception as e:
-                    response = {
-                        "content": {
-                            "type": "text",
-                            "text": str(e)
-                        }
-                    }
+                result = self.call_tool(tool_name, arguments)
+                response = {
+                    "content": [{
+                        "type": "text",
+                        "text": str(result)
+                    }]
+                }
+
             else:
                 response = {
                     "error": f"Invalid action: {request['action']}"
                 }
         except Exception as e:
             response = {
-                "error": str(e)
+                "content": [{
+                    "type": "text",
+                    "text": str(e)
+                }]
             }
+
         print(f'Response: {response}')
         time.sleep(1)
         thr = threading.Thread(

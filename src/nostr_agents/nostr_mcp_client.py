@@ -26,7 +26,7 @@ class NostrMCPClient(object):
             return False
         return inner
 
-    def list_tools(self) -> list[dict[str, Any]] | None:
+    def list_tools(self) -> dict[str, Any] | None:
         """Retrieve available tools"""
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
@@ -48,7 +48,7 @@ class NostrMCPClient(object):
         self,
         name: str,
         arguments: dict[str, Any],
-    ) -> Any:
+    ) -> dict[str, Any] | None:
         """Call a tool by name with arguments."""
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
@@ -84,6 +84,8 @@ if __name__ == "__main__":
     server_public_key = PrivateKey.from_nsec(os.getenv('NOSTR_SERVER_PRIVATE_KEY')).public_key.hex()
     nwc_str = os.getenv('NOSTR_NWC_STR')
 
+    print(f"Server public key: {PrivateKey.from_nsec(os.getenv('NOSTR_SERVER_PRIVATE_KEY')).public_key.bech32()}")
+
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, nwc_str)
     mcp_client = NostrMCPClient(client, mcp_pubkey=server_public_key)
@@ -93,10 +95,10 @@ if __name__ == "__main__":
     print(json.dumps(tools, indent=4))
 
     result = mcp_client.call_tool("get_weather", {"city": "Seattle"})
-    print(f'The weather in Seattle is: {result["content"]["text"]}')
+    print(f'The weather in Seattle is: {result["content"][-1]["text"]}')
 
     result = mcp_client.call_tool("get_current_date", {})
-    print(f'The current date is: {result["content"]["text"]}')
+    print(f'The current date is: {result["content"][-1]["text"]}')
 
     result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
-    print(f'The result of 69 * 420 is: {result["content"]["text"]}')
+    print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
