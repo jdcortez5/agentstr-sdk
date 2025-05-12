@@ -1,0 +1,215 @@
+from typing import List, Optional, Callable
+import logging
+import uuid
+
+from pynostr.base_relay import RelayPolicy
+from pynostr.key import PrivateKey
+from pynostr.message_type import RelayMessageType
+from pynostr.relay_manager import RelayManager
+from pynostr.event import EventKind
+from pynostr.filters import Filters, FiltersList
+from pynostr.encrypted_dm import EncryptedDirectMessage
+from pynostr.metadata import Metadata
+from pynostr.event import Event
+from pynostr.utils import get_public_key, get_timestamp
+from tornado.ioloop import IOLoop
+
+logging.basicConfig(level=logging.DEBUG)  # Set the minimum logging level
+
+
+logger = logging.getLogger(__name__)
+
+
+def log_callback(*args):
+    logging.info(f"Received message from {args}")
+
+
+class NostrClient(object):
+    def __init__(self,
+                 relays: List[str],
+                 private_key: str,
+                 nwc_str: str,
+                 ):
+        """
+        Initialize the NostrClient with a list of relays, private key, and NWC string.
+        :param relays: List of relay URLs.
+        :param private_key: nsec private key.
+        :param nwc_str: Nostr Wallet Connection string.
+        """
+        self.relays = relays
+        self.private_key = PrivateKey.from_nsec(private_key)
+        self.public_key = self.private_key.public_key
+        self.nwc_str = nwc_str
+
+    def sign(self, event: Event):
+        """Sign the event with the private key."""
+        event.sign(self.private_key.hex())
+        return event
+
+    def get_relay_manager(self,
+                          message_callback=log_callback,
+                          timeout: int = 5,
+                          error_threshold: int = 3,
+                          close_on_eose: bool = False,
+                          policy: RelayPolicy = RelayPolicy()) -> RelayManager:
+        relay_manager = RelayManager(timeout=timeout,
+                                     error_threshold=error_threshold)
+
+        for relay in self.relays:
+            relay_manager.add_relay(relay.strip(),
+                                    close_on_eose=close_on_eose,
+                                    policy=policy,
+                                    timeout=timeout,
+                                    message_callback=message_callback)
+        return relay_manager
+
+    def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Optional[Metadata]:
+        relay_manager = self.get_relay_manager()
+        public_key = get_public_key(public_key if isinstance(public_key, str) else public_key.hex()) if public_key else self.public_key
+        filters = FiltersList(
+            [  # enter filter condition
+                Filters(
+                    kinds=[EventKind.SET_METADATA],
+                    authors=[
+                        public_key.hex(),
+                    ],
+                    limit=1
+                )
+            ]
+        )
+
+        subscription_id = uuid.uuid1().hex
+        relay_manager.add_subscription_on_all_relays(subscription_id, filters)
+        relay_manager.run_sync()
+        messages = []
+        while relay_manager.message_pool.has_ok_notices():
+            ok_msg = relay_manager.message_pool.get_ok_notice()
+            logger.info(ok_msg)
+        while relay_manager.message_pool.has_events():
+            event_msg = relay_manager.message_pool.get_event()
+            logger.info(event_msg.event.to_dict())
+            messages.append(event_msg.event.to_dict())
+
+        if len(messages) > 0:
+            latest_metadata: dict = sorted(messages, key=lambda x: x['created_at'], reverse=True)[0]
+            return Metadata.from_dict(latest_metadata)
+        else:
+            return None
+
+    def update_metadata(self,
+                        name: Optional[str] = None,
+                        about: Optional[str] = None,
+                        nip05: Optional[str] = None,
+                        picture: Optional[str] = None,
+                        banner: Optional[str] = None,
+                        lud16: Optional[str] = None,
+                        lud06: Optional[str] = None,
+                        username: Optional[str] = None,
+                        display_name: Optional[str] = None,
+                        website: Optional[str] = None):
+        previous_metadata = self.get_metadata_for_pubkey(self.public_key)
+        metadata = previous_metadata or Metadata()
+        if name:
+            metadata.name = name
+        if about:
+            metadata.about = about
+        if nip05:
+            metadata.nip05 = nip05
+        if picture:
+            metadata.picture = picture
+        if banner:
+            metadata.banner = banner
+        if lud16:
+            metadata.lud16 = lud16
+        if lud06:
+            metadata.lud06 = lud06
+        if username:
+            metadata.username = username
+        if display_name:
+            metadata.display_name = display_name
+        if website:
+            metadata.website = website
+
+        event = self.sign(metadata.to_event())
+
+        relay_manager = self.get_relay_manager()
+
+        relay_manager.publish_event(event)
+        relay_manager.run_sync()
+
+    def send_direct_message_to_pubkey(self,
+                                      recipient_pubkey: str,
+                                      message: str):
+        recipient = get_public_key(recipient_pubkey)
+        dm = EncryptedDirectMessage()
+        dm.encrypt(
+            self.private_key.hex(),
+            cleartext_content=message,
+            recipient_pubkey=recipient.hex(),
+        )
+
+        dm_event = dm.to_event()
+        dm_event.sign(self.private_key.hex())
+
+        relay_manager = self.get_relay_manager()
+        relay_manager.publish_message(dm_event.to_message())
+        relay_manager.run_sync()
+
+    def direct_message_listener(self,
+                                callback: Callable[[Event, str], None],
+                                recipient_pubkey: str = None):
+        if recipient_pubkey:
+            authors = [get_public_key(recipient_pubkey).hex()]
+        else:
+            authors = None
+
+        filters = FiltersList(
+            [
+                Filters(
+                    authors=authors,
+                    kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
+                    since=get_timestamp(),
+                    limit=10,
+                )
+            ]
+        )
+
+        subscription_id = uuid.uuid1().hex
+
+        def print_dm(message_json, *args):
+            message_type = message_json[0]
+            if message_type == RelayMessageType.EVENT:
+                event = Event.from_dict(message_json[2])
+                if event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
+                    if event.has_pubkey_ref(self.public_key.hex()):
+                        rdm = EncryptedDirectMessage.from_event(event)
+                        rdm.decrypt(self.private_key.hex(), public_key_hex=event.pubkey)
+                        callback(event, rdm.cleartext_content)
+                        logging.info(f"New dm received:{event.date_time()} {rdm.cleartext_content}")
+            elif message_type == RelayMessageType.OK:
+                logging.info(message_json)
+            elif message_type == RelayMessageType.NOTICE:
+                logging.info(message_json)
+
+        relay_manager = self.get_relay_manager(message_callback=print_dm, timeout=0)
+        relay_manager.add_subscription_on_all_relays(subscription_id, filters)
+        relay_manager.run_sync()
+
+
+if __name__ == '__main__':
+    import os
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    # Get the environment variables
+    relays = os.getenv('NOSTR_RELAYS').split(',')
+    private_key = os.getenv('NOSTR_PRIVATE_KEY')
+    nwc_str = os.getenv('NOSTR_NWC_STR')
+
+    # Create an instance of NostrClient
+    client = NostrClient(relays, private_key, nwc_str)
+
+    client.direct_message_listener(
+        lambda event, message: print(f"Received message from event {event}: {message}"),
+    )
