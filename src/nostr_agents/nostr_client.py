@@ -1,4 +1,4 @@
-from typing import List, Optional, Callable
+from typing import List, Any, Optional, Callable
 import logging
 import uuid
 
@@ -13,7 +13,7 @@ from pynostr.metadata import Metadata
 from pynostr.event import Event
 from pynostr.utils import get_public_key, get_timestamp
 
-logging.basicConfig(level=logging.DEBUG)  # Set the minimum logging level
+logging.basicConfig(level=logging.WARNING)  # Set the minimum logging level
 
 
 logger = logging.getLogger(__name__)
@@ -155,8 +155,10 @@ class NostrClient(object):
         relay_manager.run_sync()
 
     def direct_message_listener(self,
-                                callback: Callable[[Event, str], None],
-                                recipient_pubkey: str = None):
+                                callback: Callable[[Event, str], Any],
+                                recipient_pubkey: str = None,
+                                timeout: int = 0,
+                                close_after_first_message: bool = False):
         if recipient_pubkey:
             authors = [get_public_key(recipient_pubkey).hex()]
         else:
@@ -175,40 +177,29 @@ class NostrClient(object):
 
         subscription_id = uuid.uuid1().hex
 
+        ack = set([])
+
         def print_dm(message_json, *args):
             message_type = message_json[0]
+            success = False
             if message_type == RelayMessageType.EVENT:
                 event = Event.from_dict(message_json[2])
                 if event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
+                    if event.id in ack:
+                        return
+                    ack.add(event.id)
                     if event.has_pubkey_ref(self.public_key.hex()):
                         rdm = EncryptedDirectMessage.from_event(event)
                         rdm.decrypt(self.private_key.hex(), public_key_hex=event.pubkey)
-                        callback(event, rdm.cleartext_content)
+                        success = callback(event, rdm.cleartext_content)
                         logging.info(f"New dm received:{event.date_time()} {rdm.cleartext_content}")
             elif message_type == RelayMessageType.OK:
                 logging.info(message_json)
             elif message_type == RelayMessageType.NOTICE:
                 logging.info(message_json)
+            if success and close_after_first_message:
+                relay_manager.close_subscription_on_all_relays(subscription_id)
 
-        relay_manager = self.get_relay_manager(message_callback=print_dm, timeout=0)
+        relay_manager = self.get_relay_manager(message_callback=print_dm, timeout=timeout)
         relay_manager.add_subscription_on_all_relays(subscription_id, filters)
         relay_manager.run_sync()
-
-
-if __name__ == '__main__':
-    import os
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
-    # Get the environment variables
-    relays = os.getenv('NOSTR_RELAYS').split(',')
-    private_key = os.getenv('NOSTR_PRIVATE_KEY')
-    nwc_str = os.getenv('NOSTR_NWC_STR')
-
-    # Create an instance of NostrClient
-    client = NostrClient(relays, private_key, nwc_str)
-
-    client.direct_message_listener(
-        lambda event, message: print(f"Received message from event {event}: {message}"),
-    )
