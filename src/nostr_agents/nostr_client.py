@@ -135,6 +135,10 @@ class NostrClient(object):
         if website:
             metadata.website = website
 
+        if previous_metadata and previous_metadata.content == metadata.content:
+            print("No changes in metadata, skipping update.")
+            return
+
         metadata.created_at = int(time.time())
         metadata.compute_id()
 

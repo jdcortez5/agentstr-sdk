@@ -21,6 +21,7 @@ class NostrMCPClient(object):
             try:
                 res[0] = json.loads(message)
                 if invoice := res[0].get('invoice'):
+                    print(f'Paying invoice: {invoice}')
                     self.client.nwc_client.try_pay_invoice(invoice=invoice, amt=self.tool_to_sats_map[tool_name])
                     return False  # Keep listening
                 return True
@@ -56,13 +57,10 @@ class NostrMCPClient(object):
         self.client.direct_message_listener(
             callback=self._set_result_callback(name, res),
             recipient_pubkey=self.mcp_pubkey,
-            timeout=2,
+            timeout=30,
             close_after_first_message=True
         )
         return res[0]
-
-
-
 
 
 if __name__ == "__main__":
@@ -75,7 +73,7 @@ if __name__ == "__main__":
     relays = os.getenv('NOSTR_RELAYS').split(',')
     private_key = os.getenv('NOSTR_CLIENT_PRIVATE_KEY')
     server_public_key = PrivateKey.from_nsec(os.getenv('NOSTR_SERVER_PRIVATE_KEY')).public_key.hex()
-    nwc_str = os.getenv('NOSTR_NWC_STR')
+    nwc_str = os.getenv('NWC_CONN_STR')
 
     print(f"Server public key: {PrivateKey.from_nsec(os.getenv('NOSTR_SERVER_PRIVATE_KEY')).public_key.bech32()}")
 
@@ -88,10 +86,12 @@ if __name__ == "__main__":
     print(json.dumps(tools, indent=4))
 
     result = mcp_client.call_tool("get_weather", {"city": "Seattle"})
-    print(f'The weather in Seattle is: {result["content"][-1]["text"]}')
+    print(f'Result: {result}')
 
-    result = mcp_client.call_tool("get_current_date", {})
-    print(f'The current date is: {result["content"][-1]["text"]}')
+    print(f'The weather in Seattle is: {result["content"][-1]["text"]}')
 
     result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
     print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
+
+    result = mcp_client.call_tool("get_current_date", {})
+    print(f'The current date is: {result["content"][-1]["text"]}')

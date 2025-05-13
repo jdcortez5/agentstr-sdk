@@ -80,6 +80,7 @@ class NostrMCPServer(object):
                         'invoice': invoice,
                         'amt': satoshis,
                     }
+
                     def on_success():
                         print(f"Payment succeeded for {tool_name}")
                         result = self.call_tool(tool_name, arguments)
@@ -89,29 +90,33 @@ class NostrMCPServer(object):
                                 "text": str(result)
                             }]
                         }
-                        print(f'Response: {response}')
-                        time.sleep(1)
+                        print(f'On success response: {response}')
                         thr = threading.Thread(
                             target=self.client.send_direct_message_to_pubkey,
                             args=(event.pubkey, json.dumps(response)),
                         )
                         thr.start()
+
                     def on_failure():
-                        print(f"Payment failed for {tool_name}")
                         response = {
                             "error": f"Payment failed for {tool_name}"
                         }
-                        time.sleep(1)
+                        print(f"On failure response: {response}")
                         thr = threading.Thread(
                             target=self.client.send_direct_message_to_pubkey,
                             args=(event.pubkey, json.dumps(response)),
                         )
                         thr.start()
-                    self.client.nwc_client.on_payment_success(
-                        invoice=invoice,
-                        callback=on_success,
-                        unsuccess_callback=on_failure,
+                    thr = threading.Thread(
+                        target=self.client.nwc_client.on_payment_success,
+                        kwargs={
+                            'invoice': invoice,
+                            'callback': on_success,
+                            'timeout': 20,
+                            'unsuccess_callback': on_failure,
+                        }
                     )
+                    thr.start()
                 else:
                     result = self.call_tool(tool_name, arguments)
                     response = {
@@ -172,7 +177,7 @@ if __name__ == "__main__":
     # Get the environment variables
     relays = os.getenv('NOSTR_RELAYS').split(',')
     private_key = os.getenv('NOSTR_SERVER_PRIVATE_KEY')
-    nwc_str = os.getenv('NOSTR_NWC_STR')
+    nwc_str = os.getenv('NWC_CONN_STR')
 
 
     def add(a: int, b: int) -> int:
