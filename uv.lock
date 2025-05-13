@@ -3,20 +3,6 @@ revision = 1
 requires-python = ">=3.10"
 
 [[package]]
-name = "a2a"
-version = "0.2.0"
-source = { git = "https://github.com/google/A2A.git?subdirectory=a2a-python-sdk&rev=ceeefac0dc37a847a2f3227fc00b117adf4825e1#ceeefac0dc37a847a2f3227fc00b117adf4825e1" }
-dependencies = [
-    { name = "httpx" },
-    { name = "httpx-sse" },
-    { name = "pydantic" },
-    { name = "sse-starlette" },
-    { name = "starlette" },
-    { name = "typing-extensions" },
-    { name = "uvicorn" },
-]
-
-[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -512,10 +498,9 @@ wheels = [
 
 [[package]]
 name = "nostr-agent-tools"
-version = "0.3.0"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
-    { name = "a2a" },
     { name = "bolt11" },
     { name = "mcp", extra = ["cli"] },
     { name = "pycryptodome" },
@@ -526,7 +511,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "a2a", git = "https://github.com/google/A2A.git?subdirectory=a2a-python-sdk&rev=ceeefac0dc37a847a2f3227fc00b117adf4825e1" },
     { name = "bolt11", specifier = ">=2.1.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
     { name = "pycryptodome", specifier = "==3.10.1" },
