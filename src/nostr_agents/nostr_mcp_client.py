@@ -1,13 +1,11 @@
 import threading
-from typing import Callable, Any
+from typing import Any
 import json
-import time
 
 from pynostr.event import Event
 from pynostr.key import PrivateKey
 
 from nostr_agents.nostr_client import NostrClient
-from mcp.server.fastmcp.exceptions import ToolError
 
 
 class NostrMCPClient(object):
