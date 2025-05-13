@@ -10,12 +10,12 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.tools.tool_manager import ToolManager
 
 
-class NostrMCPServer(object):
-    def __init__(self, display_name: str, nostr_client: NostrClient):
+class NostrAgentServer(object):
+    def __init__(self, display_name: str, local_agent_url: str, nostr_client: NostrClient):
         self.display_name = display_name
         self.client = nostr_client
-        self.tool_to_sats_map = {}
-        self.tool_manager = ToolManager()
+        self.local_agent_url = local_agent_url
+        self.agent_info = None
 
     def add_tool(self,
                  fn: Callable[..., Any],
