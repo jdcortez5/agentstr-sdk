@@ -14,12 +14,15 @@ class NostrMCPClient(object):
     def __init__(self, nostr_client: NostrClient, mcp_pubkey: str):
         self.mcp_pubkey = mcp_pubkey
         self.client = nostr_client
+        self.tool_to_sats_map = {}
 
-    @staticmethod
-    def _set_result_callback(res: list):
+    def _set_result_callback(self, tool_name: str, res: list):
         def inner(event: Event, message: str):
             try:
                 res[0] = json.loads(message)
+                if invoice := res[0].get('invoice'):
+                    self.client.nwc_client.try_pay_invoice(invoice=invoice, amt=self.tool_to_sats_map[tool_name])
+                    return False  # Keep listening
                 return True
             except Exception as e:
                 print(f"Error parsing message: {e}")
@@ -29,14 +32,17 @@ class NostrMCPClient(object):
     def list_tools(self) -> dict[str, Any] | None:
         """Retrieve available tools"""
         metadata = self.client.get_metadata_for_pubkey(self.mcp_pubkey)
-        return json.loads(metadata.about)
+        tools = json.loads(metadata.about)
+        for tool in tools['tools']:
+            self.tool_to_sats_map[tool['name']] = tool['satoshis']
+        return tools
 
     def call_tool(
         self,
         name: str,
         arguments: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Call a tool by name with arguments."""
+        """Call a tool by name with arguments (paying satoshis if required)."""
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
             args=(self.mcp_pubkey, json.dumps({
@@ -48,7 +54,7 @@ class NostrMCPClient(object):
         thr.start()
         res = [None]
         self.client.direct_message_listener(
-            callback=self._set_result_callback(res),
+            callback=self._set_result_callback(name, res),
             recipient_pubkey=self.mcp_pubkey,
             timeout=2,
             close_after_first_message=True

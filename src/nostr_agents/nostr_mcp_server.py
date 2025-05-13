@@ -14,16 +14,20 @@ class NostrMCPServer(object):
     def __init__(self, display_name: str, nostr_client: NostrClient):
         self.display_name = display_name
         self.client = nostr_client
+        self.tool_to_sats_map = {}
         self.tool_manager = ToolManager()
 
     def add_tool(self,
                  fn: Callable[..., Any],
                  name: str | None = None,
-                 description: str | None = None):
+                 description: str | None = None,
+                 satoshis: int | None = None):
+        if satoshis:
+            self.tool_to_sats_map[name or fn.__name__] = satoshis
         self.tool_manager.add_tool(
             fn=fn,
             name=name,
-            description=description
+            description=description,
         )
 
     def list_tools(self) -> dict[str, Any]:
@@ -32,7 +36,8 @@ class NostrMCPServer(object):
             "tools": [{
                 "name": tool.name,
                 "description": tool.description,
-                "inputSchema": tool.parameters
+                "inputSchema": tool.parameters,
+                "satoshis": self.tool_to_sats_map.get(tool.name, 0),
             } for tool in self.tool_manager.list_tools()]
         }
 
@@ -65,13 +70,56 @@ class NostrMCPServer(object):
             elif request['action'] == 'call_tool':
                 tool_name = request['tool_name']
                 arguments = request['arguments']
-                result = self.call_tool(tool_name, arguments)
-                response = {
-                    "content": [{
-                        "type": "text",
-                        "text": str(result)
-                    }]
-                }
+
+                satoshis = self.tool_to_sats_map.get(tool_name, 0)
+                if satoshis > 0:
+                    # Requires payment first
+                    invoice = self.client.nwc_client.make_invoice(amt=satoshis,
+                                                                  desc="Payment for tool call")
+                    response = {
+                        'invoice': invoice,
+                        'amt': satoshis,
+                    }
+                    def on_success():
+                        print(f"Payment succeeded for {tool_name}")
+                        result = self.call_tool(tool_name, arguments)
+                        response = {
+                            "content": [{
+                                "type": "text",
+                                "text": str(result)
+                            }]
+                        }
+                        print(f'Response: {response}')
+                        time.sleep(1)
+                        thr = threading.Thread(
+                            target=self.client.send_direct_message_to_pubkey,
+                            args=(event.pubkey, json.dumps(response)),
+                        )
+                        thr.start()
+                    def on_failure():
+                        print(f"Payment failed for {tool_name}")
+                        response = {
+                            "error": f"Payment failed for {tool_name}"
+                        }
+                        time.sleep(1)
+                        thr = threading.Thread(
+                            target=self.client.send_direct_message_to_pubkey,
+                            args=(event.pubkey, json.dumps(response)),
+                        )
+                        thr.start()
+                    self.client.nwc_client.on_payment_success(
+                        invoice=invoice,
+                        callback=on_success,
+                        unsuccess_callback=on_failure,
+                    )
+                else:
+                    result = self.call_tool(tool_name, arguments)
+                    response = {
+                        "content": [{
+                            "type": "text",
+                            "text": str(result)
+                        }]
+                    }
 
             else:
                 response = {
@@ -155,9 +203,9 @@ if __name__ == "__main__":
     server = NostrMCPServer("Evan's MCP Server", client)
     server.add_tool(add)  # Add by signature alone
     server.add_tool(multiply, name="multiply", description="Multiply two numbers")  # Add by signature and name
-    server.add_tool(get_weather)  # Add by signature alone
-    server.add_tool(get_current_date)  # Add by signature alone
-    server.add_tool(get_current_time)  # Add by signature alone
+    server.add_tool(get_weather, satoshis=10)  # Specify price in satoshis
+    server.add_tool(get_current_date)
+    server.add_tool(get_current_time, satoshis=5)
 
     server.start()
 

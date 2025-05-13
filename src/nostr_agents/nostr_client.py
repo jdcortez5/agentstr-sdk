@@ -113,8 +113,6 @@ class NostrClient(object):
                         website: Optional[str] = None):
         previous_metadata = self.get_metadata_for_pubkey(self.public_key)
 
-        print(f"Previous metadata: {previous_metadata}")
-
         metadata = previous_metadata or Metadata()
         if name:
             metadata.name = name
@@ -141,9 +139,6 @@ class NostrClient(object):
         metadata.compute_id()
 
         event = self.sign(metadata.to_event())
-
-        print(f"Event to be sent: {event}")
-
         relay_manager = self.get_relay_manager(timeout=10)
 
         relay_manager.publish_event(event)
