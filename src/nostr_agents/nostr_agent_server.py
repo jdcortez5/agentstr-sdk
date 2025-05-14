@@ -8,16 +8,19 @@ from nostr_agents.nostr_client import NostrClient
 
 
 class NostrAgentServer(object):
-    def __init__(self, display_name: str, agent_url: str, satoshis: int, nostr_client: NostrClient):
-        self.display_name = display_name
+    def __init__(self, agent_url: str, satoshis: int, nostr_client: NostrClient):
         self.client = nostr_client
         self.agent_url = agent_url
         self.satoshis = satoshis
+        self._agent_info = self._get_agent_info()
 
-    def agent_info(self) -> dict[str, Any]:
+    def _get_agent_info(self) -> dict[str, Any]:
         return requests.get(f"{self.agent_url}/info",
                             headers={'Content-Type': 'application/json'},
                             ).json()
+
+    def agent_info(self) -> dict[str, Any]:
+        return self._agent_info
 
     def chat(
         self,
@@ -122,7 +125,7 @@ class NostrAgentServer(object):
             target=self.client.update_metadata,
             kwargs={
                 'name': 'agent_server',
-                'display_name': self.display_name,
+                'display_name': self._agent_info['name'],
                 'about': json.dumps(self.agent_info())
             }
         )
@@ -152,5 +155,5 @@ if __name__ == "__main__":
 
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, nwc_str)
-    server = NostrAgentServer("Evan's Agent Server", agent_url, 0, client)
+    server = NostrAgentServer(agent_url, 0, client)
     server.start()
