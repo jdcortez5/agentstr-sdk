@@ -74,10 +74,7 @@ class NostrMCPServer(object):
                     # Requires payment first
                     invoice = self.client.nwc_client.make_invoice(amt=satoshis,
                                                                   desc="Payment for tool call")
-                    response = {
-                        'invoice': invoice,
-                        'amt': satoshis,
-                    }
+                    response = invoice
 
                     def on_success():
                         print(f"Payment succeeded for {tool_name}")
@@ -136,11 +133,14 @@ class NostrMCPServer(object):
                 }]
             }
 
+        if not isinstance(response, str):
+            response = json.dumps(response)
+
         print(f'Response: {response}')
         time.sleep(1)
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
-            args=(event.pubkey, json.dumps(response)),
+            args=(event.pubkey, response),
         )
         thr.start()
 
