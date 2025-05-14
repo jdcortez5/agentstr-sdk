@@ -53,86 +53,66 @@ class NostrAgentServer(object):
         message = message.strip()
         print(f"Request: {message}")
         try:
-            request = json.loads(message)
-            if request['action'] == 'agent_info':
-                response = self.agent_info()
 
-            elif request['action'] == 'chat':
-                tool_name = request['tool_name']
-                arguments = request['arguments']
+            satoshis = self.satoshis
+            if satoshis > 0:
+                # Requires payment first
+                invoice = self.client.nwc_client.make_invoice(amt=satoshis,
+                                                              desc="Payment for agent")
+                response = invoice
 
-                satoshis = self.satoshis
-                if satoshis > 0:
-                    # Requires payment first
-                    invoice = self.client.nwc_client.make_invoice(amt=satoshis,
-                                                                  desc="Payment for agent")
-                    response = {
-                        'invoice': invoice,
-                        'amt': satoshis,
-                    }
-
-                    def on_success():
-                        print(f"Payment succeeded for agent")
-                        result = self.chat(message, thread_id)
-                        response = {
-                            "content": [{
-                                "type": "text",
-                                "text": str(result)
-                            }]
-                        }
-                        print(f'On success response: {response}')
-                        thr = threading.Thread(
-                            target=self.client.send_direct_message_to_pubkey,
-                            args=(event.pubkey, json.dumps(response)),
-                        )
-                        thr.start()
-
-                    def on_failure():
-                        response = {
-                            "error": f"Payment failed for {tool_name}"
-                        }
-                        print(f"On failure response: {response}")
-                        thr = threading.Thread(
-                            target=self.client.send_direct_message_to_pubkey,
-                            args=(event.pubkey, json.dumps(response)),
-                        )
-                        thr.start()
-                    thr = threading.Thread(
-                        target=self.client.nwc_client.on_payment_success,
-                        kwargs={
-                            'invoice': invoice,
-                            'callback': on_success,
-                            'timeout': 20,
-                            'unsuccess_callback': on_failure,
-                        }
-                    )
-                    thr.start()
-                else:
-                    result = self.call_tool(tool_name, arguments)
+                def on_success():
+                    print(f"Payment succeeded for agent")
+                    result = self.chat(message, thread_id=None)
                     response = {
                         "content": [{
                             "type": "text",
                             "text": str(result)
                         }]
                     }
+                    print(f'On success response: {response}')
+                    thr = threading.Thread(
+                        target=self.client.send_direct_message_to_pubkey,
+                        args=(event.pubkey, response),
+                    )
+                    thr.start()
 
+                def on_failure():
+                    response = {
+                        "error": f"Payment failed"
+                    }
+                    print(f"On failure response: {response}")
+                    thr = threading.Thread(
+                        target=self.client.send_direct_message_to_pubkey,
+                        args=(event.pubkey, json.dumps(response)),
+                    )
+                    thr.start()
+                thr = threading.Thread(
+                    target=self.client.nwc_client.on_payment_success,
+                    kwargs={
+                        'invoice': invoice,
+                        'callback': on_success,
+                        'timeout': 20,
+                        'unsuccess_callback': on_failure,
+                    }
+                )
+                thr.start()
             else:
+                result = self.chat(message, thread_id=None)
                 response = {
-                    "error": f"Invalid action: {request['action']}"
+                    "content": [{
+                        "type": "text",
+                        "text": str(result)
+                    }]
                 }
         except Exception as e:
-            response = {
-                "content": [{
-                    "type": "text",
-                    "text": str(e)
-                }]
-            }
+            response = f'Error: {e}'
 
         print(f'Response: {response}')
         time.sleep(1)
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
-            args=(event.pubkey, json.dumps(response)),
+            args=(event.pubkey, response),
         )
         thr.start()
 
@@ -169,43 +149,7 @@ if __name__ == "__main__":
     private_key = os.getenv('NOSTR_SERVER_PRIVATE_KEY')
     nwc_str = os.getenv('NWC_CONN_STR')
 
-
-    def add(a: int, b: int) -> int:
-        """Add two numbers"""
-        return a + b
-
-    def multiply(a: int, b: int) -> int:
-        """Multiply two numbers"""
-        return a * b
-
-    def get_weather(city: str) -> str:
-        """Gets the weather for a city"""
-        if city.lower() in {'portland', 'seattle', 'vancouver'}:
-            return 'rainy'
-        else:
-            return 'sunny'
-
-    def get_current_date() -> str:
-        """Gets today's date"""
-        return time.strftime("%Y-%m-%d")
-
-    def get_current_time() -> str:
-        """Gets the time of day"""
-        return time.strftime("%H:%M:%S")
-
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, nwc_str)
-    server = NostrMCPServer("Evan's MCP Server", client)
-    server.add_tool(add)  # Add by signature alone
-    server.add_tool(multiply, name="multiply", description="Multiply two numbers")  # Add by signature and name
-    server.add_tool(get_weather, satoshis=10)  # Specify price in satoshis
-    server.add_tool(get_current_date)
-    server.add_tool(get_current_time, satoshis=5)
-
+    server = NostrAgentServer("Evan's Agent Server", client)
     server.start()
-
-    '''
-    {"action": "list_tools"}
-    {"action": "call_tool", "tool_name": "add", "arguments": {"a": 1, "b": 2}}
-    {"action": "call_tool", "tool_name": "multiply", "arguments": {"a": 2, "b": 5}}
-    '''
