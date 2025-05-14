@@ -2,55 +2,45 @@ import threading
 from typing import Callable, Any
 import json
 import time
-
 from pynostr.event import Event
-
+import requests
 from nostr_agents.nostr_client import NostrClient
-from mcp.server.fastmcp.exceptions import ToolError
-from mcp.server.fastmcp.tools.tool_manager import ToolManager
 
 
 class NostrAgentServer(object):
-    def __init__(self, display_name: str, local_agent_url: str, nostr_client: NostrClient):
+    def __init__(self, display_name: str, agent_url: str, satoshis: int, nostr_client: NostrClient):
         self.display_name = display_name
         self.client = nostr_client
-        self.local_agent_url = local_agent_url
-        self.agent_info = None
+        self.agent_url = agent_url
+        self.satoshis = satoshis
 
-    def add_tool(self,
-                 fn: Callable[..., Any],
-                 name: str | None = None,
-                 description: str | None = None,
-                 satoshis: int | None = None):
-        if satoshis:
-            self.tool_to_sats_map[name or fn.__name__] = satoshis
-        self.tool_manager.add_tool(
-            fn=fn,
-            name=name,
-            description=description,
-        )
+    def agent_info(self) -> dict[str, Any]:
+        return requests.get(f"{self.agent_url}/info",
+                            headers={'Content-Type': 'application/json'},
+                            ).json()
 
-    def list_tools(self) -> dict[str, Any]:
-        """Define available tools"""
-        return {
-            "tools": [{
-                "name": tool.name,
-                "description": tool.description,
-                "inputSchema": tool.parameters,
-                "satoshis": self.tool_to_sats_map.get(tool.name, 0),
-            } for tool in self.tool_manager.list_tools()]
-        }
-
-    def call_tool(
+    def chat(
         self,
-        name: str,
-        arguments: dict[str, Any],
+        message: str,
+        thread_id: str | None = None,
     ) -> Any:
         """Call a tool by name with arguments."""
-        tool = self.tool_manager.get_tool(name)
-        if not tool:
-            raise ToolError(f"Unknown tool: {name}")
-        result = tool.fn(**arguments)
+        request = {
+            'messages': [message]
+        }
+        if thread_id:
+            request['thread_id'] = thread_id
+        response = requests.post(
+            f"{self.agent_url}/chat",
+            headers={'Content-Type': 'application/json'},
+            json=request,
+        )
+        try:
+            response.raise_for_status()
+            result = response.text
+        except Exception as e:
+            print(f"Error: {e}")
+            result = f'Unknown error'
         return result
 
     def _direct_message_callback(self, event: Event, message: str):
@@ -64,26 +54,26 @@ class NostrAgentServer(object):
         print(f"Request: {message}")
         try:
             request = json.loads(message)
-            if request['action'] == 'list_tools':
-                response = self.list_tools()
+            if request['action'] == 'agent_info':
+                response = self.agent_info()
 
-            elif request['action'] == 'call_tool':
+            elif request['action'] == 'chat':
                 tool_name = request['tool_name']
                 arguments = request['arguments']
 
-                satoshis = self.tool_to_sats_map.get(tool_name, 0)
+                satoshis = self.satoshis
                 if satoshis > 0:
                     # Requires payment first
                     invoice = self.client.nwc_client.make_invoice(amt=satoshis,
-                                                                  desc="Payment for tool call")
+                                                                  desc="Payment for agent")
                     response = {
                         'invoice': invoice,
                         'amt': satoshis,
                     }
 
                     def on_success():
-                        print(f"Payment succeeded for {tool_name}")
-                        result = self.call_tool(tool_name, arguments)
+                        print(f"Payment succeeded for agent")
+                        result = self.chat(message, thread_id)
                         response = {
                             "content": [{
                                 "type": "text",
@@ -151,9 +141,9 @@ class NostrAgentServer(object):
         thr = threading.Thread(
             target=self.client.update_metadata,
             kwargs={
-                'name': 'mcp_server',
+                'name': 'agent_server',
                 'display_name': self.display_name,
-                'about': json.dumps(self.list_tools())
+                'about': json.dumps(self.agent_info())
             }
         )
         print(f'Updating metadata for {self.client.public_key.bech32()}')

@@ -113,7 +113,10 @@ class NostrClient(object):
                         website: Optional[str] = None):
         previous_metadata = self.get_metadata_for_pubkey(self.public_key)
 
-        metadata = previous_metadata or Metadata()
+        metadata = Metadata()
+        if previous_metadata:
+            metadata.set_metadata(previous_metadata.metadata_to_dict())
+
         if name:
             metadata.name = name
         if about:
@@ -135,12 +138,12 @@ class NostrClient(object):
         if website:
             metadata.website = website
 
+        metadata.created_at = int(time.time())
+        metadata.update()
+
         if previous_metadata and previous_metadata.content == metadata.content:
             print("No changes in metadata, skipping update.")
             return
-
-        metadata.created_at = int(time.time())
-        metadata.compute_id()
 
         event = self.sign(metadata.to_event())
         relay_manager = self.get_relay_manager(timeout=10)
