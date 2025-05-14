@@ -2,9 +2,7 @@ import threading
 from typing import Callable, Any
 import json
 import time
-
 from pynostr.event import Event
-
 from nostr_agents.nostr_client import NostrClient
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.tools.tool_manager import ToolManager
