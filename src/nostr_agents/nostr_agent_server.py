@@ -74,12 +74,7 @@ class NostrAgentServer(object):
                 def on_success():
                     print(f"Payment succeeded for agent")
                     result = self.chat(message, thread_id=event.pubkey)
-                    response = {
-                        "content": [{
-                            "type": "text",
-                            "text": str(result)
-                        }]
-                    }
+                    response = str(result)
                     print(f'On success response: {response}')
                     thr = threading.Thread(
                         target=self.client.send_direct_message_to_pubkey,
@@ -88,13 +83,11 @@ class NostrAgentServer(object):
                     thr.start()
 
                 def on_failure():
-                    response = {
-                        "error": f"Payment failed"
-                    }
+                    response = f"Payment failed. Please try again."
                     print(f"On failure response: {response}")
                     thr = threading.Thread(
                         target=self.client.send_direct_message_to_pubkey,
-                        args=(event.pubkey, json.dumps(response)),
+                        args=(event.pubkey, response),
                     )
                     thr.start()
                 thr = threading.Thread(
@@ -109,12 +102,7 @@ class NostrAgentServer(object):
                 thr.start()
             else:
                 result = self.chat(message, thread_id=event.pubkey)
-                response = {
-                    "content": [{
-                        "type": "text",
-                        "text": str(result)
-                    }]
-                }
+                response = str(result)
         except Exception as e:
             response = f'Error: {e}'
 
