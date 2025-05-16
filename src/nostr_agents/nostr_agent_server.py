@@ -43,7 +43,7 @@ class NostrAgentServer(object):
         )
         try:
             response.raise_for_status()
-            result = response.text
+            result = response.text.strip('"').strip()
         except Exception as e:
             print(f"Error: {e}")
             result = f'Unknown error'
@@ -95,7 +95,7 @@ class NostrAgentServer(object):
                     kwargs={
                         'invoice': invoice,
                         'callback': on_success,
-                        'timeout': 20,
+                        'timeout': 120,
                         'unsuccess_callback': on_failure,
                     }
                 )

@@ -107,7 +107,7 @@ class NostrMCPServer(object):
                         kwargs={
                             'invoice': invoice,
                             'callback': on_success,
-                            'timeout': 20,
+                            'timeout': 120,
                             'unsuccess_callback': on_failure,
                         }
                     )
