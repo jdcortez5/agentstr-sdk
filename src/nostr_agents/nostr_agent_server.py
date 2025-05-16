@@ -29,10 +29,11 @@ class NostrAgentServer(object):
     ) -> Any:
         """Call a tool by name with arguments."""
         request = {
-            'messages': [message]
+            'messages': [message],
         }
         if thread_id:
             request['thread_id'] = thread_id
+        print(f'Sending request: {json.dumps(request)}')
         response = requests.post(
             f"{self.agent_url}/chat",
             headers={'Content-Type': 'application/json'},
@@ -44,6 +45,7 @@ class NostrAgentServer(object):
         except Exception as e:
             print(f"Error: {e}")
             result = f'Unknown error'
+        print(f'Response: {result}')
         return result
 
     def _direct_message_callback(self, event: Event, message: str):
@@ -66,7 +68,7 @@ class NostrAgentServer(object):
 
                 def on_success():
                     print(f"Payment succeeded for agent")
-                    result = self.chat(message, thread_id=None)
+                    result = self.chat(message, thread_id=event.pubkey)
                     response = {
                         "content": [{
                             "type": "text",
@@ -101,7 +103,7 @@ class NostrAgentServer(object):
                 )
                 thr.start()
             else:
-                result = self.chat(message, thread_id=None)
+                result = self.chat(message, thread_id=event.pubkey)
                 response = {
                     "content": [{
                         "type": "text",
