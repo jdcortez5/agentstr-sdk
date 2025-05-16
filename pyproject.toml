@@ -1,6 +1,6 @@
 [project]
 name = "nostr-agent-tools"
-version = "0.3.8"
+version = "0.3.9"
 description = "Model Context Protocol (MCP) communication through NOSTR."
 requires-python = ">=3.10"
 classifiers = [

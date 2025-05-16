@@ -4,6 +4,8 @@ import json
 import time
 from pynostr.event import Event
 import requests
+from pynostr.utils import get_public_key
+
 from nostr_agents.nostr_client import NostrClient
 
 
@@ -49,6 +51,9 @@ class NostrAgentServer(object):
         return result
 
     def _direct_message_callback(self, event: Event, message: str):
+        if event.pubkey != get_public_key('npub1jch03stp0x3fy6ykv5df2fnhtaq4xqvqlmpjdu68raaqcntca5tqahld7a').hex():
+            print(f'Ignoring messages not from markcrypto')
+            return
         """
         Callback function to handle incoming direct messages.
         :param event: The event object containing the message.
