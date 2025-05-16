@@ -2,6 +2,7 @@ from typing import List, Any, Optional, Callable
 import logging
 import uuid
 import time
+import json
 
 from pynostr.base_relay import RelayPolicy
 from pynostr.key import PrivateKey
@@ -156,6 +157,8 @@ class NostrClient(object):
                                       message: str):
         recipient = get_public_key(recipient_pubkey)
         dm = EncryptedDirectMessage()
+        if isinstance(message, dict):
+            message = json.dumps(message)
         dm.encrypt(
             self.private_key.hex(),
             cleartext_content=message,
