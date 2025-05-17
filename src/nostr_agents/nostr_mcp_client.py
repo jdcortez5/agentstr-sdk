@@ -48,6 +48,10 @@ class NostrMCPClient(object):
     ) -> dict[str, Any] | None:
         """Call a tool by name with arguments (paying satoshis if required)."""
         timestamp = get_timestamp()
+        if self.tool_to_sats_map.get(name):
+            timeout = 10
+        else:
+            timeout = 3
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
             args=(self.mcp_pubkey, json.dumps({
@@ -61,7 +65,7 @@ class NostrMCPClient(object):
         self.client.direct_message_listener(
             callback=self._set_result_callback(name, res),
             recipient_pubkey=self.mcp_pubkey,
-            timeout=3,
+            timeout=timeout,
             timestamp=timestamp,
             close_after_first_message=True
         )
