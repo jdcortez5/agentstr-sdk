@@ -1,4 +1,4 @@
-from nostr_agents.nwc import processNWCstring, tryToPayInvoice, listTx, getBalance, didPaymentSucceed, makeInvoice, checkInvoice
+from nostr_agents.nwc import processNWCstring, tryToPayInvoice, listTx, getBalance, makeInvoice, checkInvoice
 from bolt11.decode import decode
 import time
 
@@ -20,7 +20,7 @@ class NWCClient(object):
         return checkInvoice(self.nwc_info, invoice=invoice, payment_hash=payment_hash)
 
     def did_payment_succeed(self, invoice: str = None) -> bool | str:
-        return didPaymentSucceed(self.nwc_info, invoice=invoice)
+        return self.check_invoice(invoice=invoice).get('result', {}).get('settled_at', 0) > 0
 
     def try_pay_invoice(self, invoice: str, amt: int = None):
         decoded = decode(invoice)
@@ -42,10 +42,16 @@ class NWCClient(object):
         start_time = time.time()
         success = False
         while True:
+            print(f'Checking payment status for invoice: {invoice}')
+            print(self.check_invoice(invoice=invoice))
             if self.did_payment_succeed(invoice):
                 success = True
                 if callback:
-                    callback()
+                    try:
+                        callback()
+                    except Exception as e:
+                        print(f"Error in callback: {e}")
+                        raise e
                 break
             if time.time() - start_time > timeout:
                 break
@@ -53,3 +59,17 @@ class NWCClient(object):
         if not success:
             if unsuccess_callback:
                 unsuccess_callback()
+
+
+if __name__=='__main__':
+    from dotenv import load_dotenv
+    import os
+    load_dotenv()
+    nwc_str = os.getenv('AGENT_NWC_CONN_STR')
+    client = NWCClient(nwc_str)
+    invoice = client.make_invoice(amt=5, desc='test')
+    print(f'Invoice: {invoice}')
+    client.on_payment_success(invoice,
+                              callback=lambda: print('Payment succeeded'),
+                              unsuccess_callback=lambda: print('Payment failed'),
+                              timeout=120,)
