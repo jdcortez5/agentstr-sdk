@@ -43,7 +43,7 @@ class NostrAgentServer(object):
         )
         try:
             response.raise_for_status()
-            result = response.text.replace('\\n', '').strip('"').strip()
+            result = response.text.replace('\\n', '\n').strip('"').strip()
         except Exception as e:
             print(f"Error: {e}")
             result = f'Unknown error'
