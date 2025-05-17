@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     # Get the environment variables
     relays = os.getenv('NOSTR_RELAYS').split(',')
-    private_key = os.getenv('NOSTR_SERVER_PRIVATE_KEY')
+    private_key = os.getenv('MCP_MATH_PRIVATE_KEY')
     nwc_str = os.getenv('NWC_CONN_STR')
 
 
@@ -206,9 +206,9 @@ if __name__ == "__main__":
     server = NostrMCPServer("Evan's MCP Server", client)
     server.add_tool(add)  # Add by signature alone
     server.add_tool(multiply, name="multiply", description="Multiply two numbers")  # Add by signature and name
-    server.add_tool(get_weather, satoshis=10)  # Specify price in satoshis
+    server.add_tool(get_weather)#, satoshis=10)  # Specify price in satoshis
     server.add_tool(get_current_date)
-    server.add_tool(get_current_time, satoshis=5)
+    server.add_tool(get_current_time)#, satoshis=5)
 
     server.start()
 

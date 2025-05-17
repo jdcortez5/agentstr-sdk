@@ -22,6 +22,7 @@ logging.basicConfig(level=logging.WARNING)  # Set the minimum logging level
 
 
 logger = logging.getLogger(__name__)
+ack = set([])
 
 
 def log_callback(*args):
@@ -52,7 +53,7 @@ class NostrClient(object):
 
     def get_relay_manager(self,
                           message_callback=log_callback,
-                          timeout: int = 5,
+                          timeout: int = 2,
                           error_threshold: int = 3,
                           close_on_eose: bool = False,
                           policy: RelayPolicy = RelayPolicy()) -> RelayManager:
@@ -93,6 +94,7 @@ class NostrClient(object):
             event_msg = relay_manager.message_pool.get_event()
             logger.info(event_msg.event.to_dict())
             messages.append(event_msg.event.to_dict())
+            break
         relay_manager.close_subscription_on_all_relays(subscription_id)
 
         if len(messages) > 0:
@@ -176,6 +178,7 @@ class NostrClient(object):
                                 callback: Callable[[Event, str], Any],
                                 recipient_pubkey: str = None,
                                 timeout: int = 0,
+                                timestamp: int = None,
                                 close_after_first_message: bool = False):
         if recipient_pubkey:
             authors = [get_public_key(recipient_pubkey).hex()]
@@ -187,15 +190,13 @@ class NostrClient(object):
                 Filters(
                     authors=authors,
                     kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
-                    since=get_timestamp(),
+                    since=timestamp or get_timestamp(),
                     limit=10,
                 )
             ]
         )
 
         subscription_id = uuid.uuid1().hex
-
-        ack = set([])
 
         def print_dm(message_json, *args):
             message_type = message_json[0]

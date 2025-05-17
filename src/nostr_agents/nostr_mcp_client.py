@@ -1,9 +1,11 @@
 import threading
+import time
 from typing import Any
 import json
 
 from pynostr.event import Event
 from pynostr.key import PrivateKey
+from pynostr.utils import get_timestamp
 
 from nostr_agents.nostr_client import NostrClient
 
@@ -40,8 +42,10 @@ class NostrMCPClient(object):
         self,
         name: str,
         arguments: dict[str, Any],
+        timeout: int = 60,
     ) -> dict[str, Any] | None:
         """Call a tool by name with arguments (paying satoshis if required)."""
+        timestamp = get_timestamp()
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
             args=(self.mcp_pubkey, json.dumps({
@@ -55,7 +59,8 @@ class NostrMCPClient(object):
         self.client.direct_message_listener(
             callback=self._set_result_callback(name, res),
             recipient_pubkey=self.mcp_pubkey,
-            timeout=30,
+            timeout=3,
+            timestamp=timestamp,
             close_after_first_message=True
         )
         return res[0]
@@ -69,19 +74,19 @@ if __name__ == "__main__":
 
     # Get the environment variables
     relays = os.getenv('NOSTR_RELAYS').split(',')
-    private_key = os.getenv('NOSTR_CLIENT_PRIVATE_KEY')
-    server_public_key = PrivateKey.from_nsec(os.getenv('NOSTR_SERVER_PRIVATE_KEY')).public_key.hex()
+    private_key = os.getenv('MCP_EXCHANGE_RATE_PRIVATE_KEY')
+    server_public_key = PrivateKey.from_nsec(os.getenv('MCP_MATH_PRIVATE_KEY')).public_key.hex()
     nwc_str = os.getenv('NWC_CONN_STR')
 
-    print(f"Server public key: {PrivateKey.from_nsec(os.getenv('NOSTR_SERVER_PRIVATE_KEY')).public_key.bech32()}")
+    print(f"Server public key: {server_public_key}")
 
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, nwc_str)
     mcp_client = NostrMCPClient(client, mcp_pubkey=server_public_key)
 
-    tools = mcp_client.list_tools()
+    #tools = mcp_client.list_tools()
     print(f'Found tools:')
-    print(json.dumps(tools, indent=4))
+    #print(json.dumps(tools, indent=4))
 
     result = mcp_client.call_tool("get_weather", {"city": "Seattle"})
     print(f'Result: {result}')
