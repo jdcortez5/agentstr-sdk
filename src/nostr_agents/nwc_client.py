@@ -42,8 +42,6 @@ class NWCClient(object):
         start_time = time.time()
         success = False
         while True:
-            print(f'Checking payment status for invoice: {invoice}')
-            print(self.check_invoice(invoice=invoice))
             if self.did_payment_succeed(invoice):
                 success = True
                 if callback:
