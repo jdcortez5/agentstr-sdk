@@ -84,9 +84,9 @@ if __name__ == "__main__":
     client = NostrClient(relays, private_key, nwc_str)
     mcp_client = NostrMCPClient(client, mcp_pubkey=server_public_key)
 
-    #tools = mcp_client.list_tools()
+    tools = mcp_client.list_tools()
     print(f'Found tools:')
-    #print(json.dumps(tools, indent=4))
+    print(json.dumps(tools, indent=4))
 
     result = mcp_client.call_tool("get_weather", {"city": "Seattle"})
     print(f'Result: {result}')
