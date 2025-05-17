@@ -112,6 +112,7 @@ class NostrMCPServer(object):
                         }
                     )
                     thr.start()
+                    return
                 else:
                     result = self.call_tool(tool_name, arguments)
                     response = {
