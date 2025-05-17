@@ -20,7 +20,7 @@ class NWCClient(object):
         return checkInvoice(self.nwc_info, invoice=invoice, payment_hash=payment_hash)
 
     def did_payment_succeed(self, invoice: str = None) -> bool | str:
-        return self.check_invoice(invoice=invoice).get('result', {}).get('settled_at', 0) > 0
+        return self.check_invoice(invoice=invoice).get('result', {}).get('settled_at') or 0 > 0
 
     def try_pay_invoice(self, invoice: str, amt: int = None):
         decoded = decode(invoice)
