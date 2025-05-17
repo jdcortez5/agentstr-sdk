@@ -49,7 +49,7 @@ class NostrMCPClient(object):
         """Call a tool by name with arguments (paying satoshis if required)."""
         timestamp = get_timestamp()
         if self.tool_to_sats_map.get(name):
-            timeout = 10
+            timeout = 20
         else:
             timeout = 3
         thr = threading.Thread(
