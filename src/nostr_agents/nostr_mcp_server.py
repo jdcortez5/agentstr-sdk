@@ -156,7 +156,7 @@ class NostrMCPServer(object):
         )
         print(f'Updating metadata for {self.client.public_key.bech32()}')
         thr.start()
-        time.sleep(5)
+        time.sleep(3)
 
         print(f'Starting message listener for {self.client.public_key.bech32()}')
 

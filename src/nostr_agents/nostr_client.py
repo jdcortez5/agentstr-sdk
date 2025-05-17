@@ -148,7 +148,7 @@ class NostrClient(object):
             return
 
         event = self.sign(metadata.to_event())
-        relay_manager = self.get_relay_manager(timeout=10)
+        relay_manager = self.get_relay_manager(timeout=5)
 
         relay_manager.publish_event(event)
         relay_manager.run_sync()

@@ -19,11 +19,13 @@ class NostrMCPClient(object):
     def _set_result_callback(self, tool_name: str, res: list):
         def inner(event: Event, message: str):
             try:
-                res[0] = json.loads(message)
-                if invoice := res[0].get('invoice'):
+                print(f'MCP Client received message: {message}')
+                if isinstance(message, str) and message.startswith('ln'):
+                    invoice = message.strip()
                     print(f'Paying invoice: {invoice}')
                     self.client.nwc_client.try_pay_invoice(invoice=invoice, amt=self.tool_to_sats_map[tool_name])
                     return False  # Keep listening
+                res[0] = json.loads(message)
                 return True
             except Exception as e:
                 print(f"Error parsing message: {e}")

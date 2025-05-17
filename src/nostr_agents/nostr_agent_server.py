@@ -43,7 +43,7 @@ class NostrAgentServer(object):
         )
         try:
             response.raise_for_status()
-            result = response.text.strip('"').strip()
+            result = response.text.replace('\n', '').strip('"').strip()
         except Exception as e:
             print(f"Error: {e}")
             result = f'Unknown error'
@@ -126,7 +126,7 @@ class NostrAgentServer(object):
         )
         print(f'Updating metadata for {self.client.public_key.bech32()}')
         thr.start()
-        time.sleep(5)
+        time.sleep(3)
 
         print(f'Starting message listener for {self.client.public_key.bech32()}')
 
