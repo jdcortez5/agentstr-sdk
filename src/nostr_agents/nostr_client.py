@@ -68,6 +68,27 @@ class NostrClient(object):
                                     message_callback=message_callback)
         return relay_manager
 
+    def read_posts_by_tag(self, tag: str, limit: int = 10) -> list[Event]:
+        relay_manager = self.get_relay_manager(timeout=10)
+
+        filter1 = Filters(
+            limit=limit,
+            kinds=[EventKind.TEXT_NOTE],
+        )
+        filter1.add_arbitrary_tag("t", [tag])
+        subscription_id = uuid.uuid1().hex
+
+        relay_manager.add_subscription_on_all_relays(subscription_id, FiltersList([filter1]))
+        relay_manager.run_sync()
+
+        posts = {}
+        while relay_manager.message_pool.has_events():
+            event_msg = relay_manager.message_pool.get_event()
+            event_id = event_msg.event.id
+            if event_id not in posts:
+                posts[event_id] = event_msg.event
+        return list(posts.values())
+
     def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Optional[Metadata]:
         relay_manager = self.get_relay_manager()
         public_key = get_public_key(public_key if isinstance(public_key, str) else public_key.hex()) if public_key else self.public_key
@@ -221,3 +242,20 @@ class NostrClient(object):
         relay_manager = self.get_relay_manager(message_callback=print_dm, timeout=timeout)
         relay_manager.add_subscription_on_all_relays(subscription_id, filters)
         relay_manager.run_sync()
+
+
+if __name__ == '__main__':
+    import os
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    # Get the environment variables
+    relays = os.getenv('NOSTR_RELAYS').split(',')
+    private_key = os.getenv('AGENT_PRIVATE_KEY')
+    server_public_key = PrivateKey.from_nsec(os.getenv('MCP_MATH_PRIVATE_KEY')).public_key.hex()
+
+    # Create an instance of NostrClient
+    client = NostrClient(relays, private_key, None)
+    events = client.read_posts_by_tag('mcp_tool_discovery')
+    print(events)
