@@ -68,7 +68,7 @@ class NostrClient(object):
                                     message_callback=message_callback)
         return relay_manager
 
-    def read_posts_by_tag(self, tag: str, limit: int = 10) -> list[Event]:
+    def read_posts_by_tag(self, tag: str, limit: int = 10) -> list[dict]:
         relay_manager = self.get_relay_manager(timeout=10)
 
         filter1 = Filters(
@@ -86,7 +86,7 @@ class NostrClient(object):
             event_msg = relay_manager.message_pool.get_event()
             event_id = event_msg.event.id
             if event_id not in posts:
-                posts[event_id] = event_msg.event
+                posts[event_id] = event_msg.event.to_dict()
         return list(posts.values())
 
     def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Optional[Metadata]:
@@ -108,15 +108,11 @@ class NostrClient(object):
         relay_manager.add_subscription_on_all_relays(subscription_id, filters)
         relay_manager.run_sync()
         messages = []
-        #while relay_manager.message_pool.has_ok_notices():
-        #    ok_msg = relay_manager.message_pool.get_ok_notice()
-        #    logger.info(ok_msg)
         while relay_manager.message_pool.has_events():
             event_msg = relay_manager.message_pool.get_event()
             logger.info(event_msg.event.to_dict())
             messages.append(event_msg.event.to_dict())
             break
-        #relay_manager.close_subscription_on_all_relays(subscription_id)
         if len(messages) > 0:
             latest_metadata: dict = sorted(messages, key=lambda x: x['created_at'], reverse=True)[0]
             return Metadata.from_dict(latest_metadata)
@@ -258,4 +254,4 @@ if __name__ == '__main__':
     # Create an instance of NostrClient
     client = NostrClient(relays, private_key, None)
     events = client.read_posts_by_tag('mcp_tool_discovery')
-    print(events)
+    print([event.to_dict() for event in events])
