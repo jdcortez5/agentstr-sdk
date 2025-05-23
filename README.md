@@ -1,5 +1,4 @@
-# Nostr Agent Tools
-
+# Agentstr - Nostr Agent Tools
 
 ## File Descriptions
 

@@ -51,8 +51,8 @@ class NostrAgentServer(object):
         return result
 
     def _direct_message_callback(self, event: Event, message: str):
-        if event.pubkey != get_public_key('npub1jch03stp0x3fy6ykv5df2fnhtaq4xqvqlmpjdu68raaqcntca5tqahld7a').hex():
-            print(f'Ignoring messages not from markcrypto')
+        if message.strip().startswith('{'):
+            print(f'Ignoring non-chat messages')
             return
         """
         Callback function to handle incoming direct messages.

@@ -3,6 +3,29 @@ revision = 1
 requires-python = ">=3.10"
 
 [[package]]
+name = "agentstr"
+version = "0.0.1"
+source = { editable = "." }
+dependencies = [
+    { name = "bolt11" },
+    { name = "mcp", extra = ["cli"] },
+    { name = "pycryptodome" },
+    { name = "pynostr", extra = ["websocket-client"] },
+    { name = "python-dotenv" },
+    { name = "secp256k1" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bolt11", specifier = ">=2.1.1" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
+    { name = "pycryptodome", specifier = "==3.10.1" },
+    { name = "pynostr", extras = ["websocket-client"], specifier = ">=0.6.2" },
+    { name = "python-dotenv", specifier = ">=1.1.0" },
+    { name = "secp256k1", specifier = ">=0.14.0" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -494,29 +517,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979 },
-]
-
-[[package]]
-name = "nostr-agent-tools"
-version = "0.5.0"
-source = { editable = "." }
-dependencies = [
-    { name = "bolt11" },
-    { name = "mcp", extra = ["cli"] },
-    { name = "pycryptodome" },
-    { name = "pynostr", extra = ["websocket-client"] },
-    { name = "python-dotenv" },
-    { name = "secp256k1" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bolt11", specifier = ">=2.1.1" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
-    { name = "pycryptodome", specifier = "==3.10.1" },
-    { name = "pynostr", extras = ["websocket-client"], specifier = ">=0.6.2" },
-    { name = "python-dotenv", specifier = ">=1.1.0" },
-    { name = "secp256k1", specifier = ">=0.14.0" },
 ]
 
 [[package]]
