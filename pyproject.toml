@@ -1,5 +1,5 @@
 [project]
-name = "agentstr"
+name = "nostr-agents"
 version = "0.0.1"
 description = "Model Context Protocol (MCP) communication through Nostr."
 requires-python = ">=3.10"
