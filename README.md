@@ -1,87 +1,52 @@
 # Agentstr - Nostr Agent Tools
 
-## File Descriptions
+## Overview
+The agentstr SDK is designed to integrate MCP functionality with the Nostr protocol, enabling developers to create servers and clients that communicate over Nostr's decentralized relay network. It supports:
 
-### 1. `nwc_client.py`
-A Python class (`NWCClient`) for interacting with a Nostr Wallet Connect (NWC) service to handle Lightning Network payments.
++ **NostrClient**: A core client for interacting with Nostr relays, handling events, direct messages, and metadata.
++ **NostrMCPServer**: A server that exposes tools (functions) that clients can call, with optional payment requirements in satoshis via Nostr Wallet Connect (NWC).
++ **NostrMCPClient**: A client that discovers and calls tools on an MCP server, handling payments if required.
++ **NostrAgentServer**: A server that interacts with an external agent (e.g., a chatbot) and processes direct messages, with optional payment support.
++ **NWCClient**: A client for Nostr Wallet Connect, managing payments and invoices.
 
-- **Functionality**:
-  - Initialize with an NWC connection string.
-  - List transactions (`list_tx`).
-  - Get wallet balance (`get_balance`).
-  - Create invoices (`make_invoice`).
-  - Check invoice status (`check_invoice`).
-  - Pay invoices (`try_pay_invoice`).
-  - Monitor payment success with callbacks (`on_payment_success`).
-- **Usage**: Used by other scripts to handle payment-related operations.
-- **Example**: Create an invoice and monitor payment:
-  ```python
-  client = NWCClient(nwc_str)
-  invoice = client.make_invoice(amt=5, desc='test')
-  client.on_payment_success(invoice, callback=lambda: print('Payment succeeded'))
-  ```
+The SDK uses the pynostr library for Nostr protocol interactions and supports asynchronous communication, tool management, and payment processing.
 
-### 2. `nostr_client.py`
-A core client (`NostrClient`) for interacting with the Nostr protocol.
+## Usage Example
+To demonstrate how to use the agentstr SDK, here's an example of setting up an MCP server with mathematical tools and a client to call them:
 
-- **Functionality**:
-  - Initialize with relay URLs, private key, and optional NWC string.
-  - Sign events with a private key.
-  - Manage relay connections (`get_relay_manager`).
-  - Read posts by tag (`read_posts_by_tag`).
-  - Fetch and update user metadata (`get_metadata_for_pubkey`, `update_metadata`).
-  - Send and listen for encrypted direct messages (`send_direct_message_to_pubkey`, `direct_message_listener`).
-- **Usage**: Foundation for other scripts to interact with Nostr relays.
-- **Example**: Read posts with a specific tag:
-  ```python
-  client = NostrClient(relays, private_key)
-  posts = client.read_posts_by_tag('mcp_tool_discovery')
-  ```
+```python
+from agentstr import NostrClient, NostrMCPServer, NostrMCPClient
+import os
+from dotenv import load_dotenv
 
-### 3. `nostr_mcp_client.py`
-A client (`NostrMCPClient`) for interacting with MCP servers over Nostr.
+load_dotenv()
+relays = os.getenv('NOSTR_RELAYS').split(',')
+private_key = os.getenv('MCP_MATH_PRIVATE_KEY')
+nwc_str = os.getenv('NWC_CONN_STR')
 
-- **Functionality**:
-  - Initialize with a `NostrClient` and MCP server public key.
-  - List available tools (`list_tools`).
-  - Call tools with arguments, handling payments if required (`call_tool`).
-- **Usage**: Used to invoke tools (e.g., math operations, weather queries) on remote MCP servers.
-- **Example**: Call a multiplication tool:
-  ```python
-  mcp_client = NostrMCPClient(nostr_client, server_public_key)
-  result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
-  ```
+# Define a tool
+def add(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
 
-### 4. `nostr_mcp_server.py`
-A server (`NostrMCPServer`) that exposes tools via Nostr and handles tool execution with optional payment requirements.
+# Create and start an MCP server
+client = NostrClient(relays, private_key, nwc_str)
+server = NostrMCPServer("Math MCP Server", client)
+server.add_tool(add, satoshis=10)  # Requires 10 satoshis to call
+server.start()
 
-- **Functionality**:
-  - Initialize with a display name and `NostrClient`.
-  - Add tools with optional pricing in satoshis (`add_tool`).
-  - List available tools (`list_tools`).
-  - Execute tools based on incoming requests (`call_tool`).
-  - Handle direct messages to process tool calls and payments (`_direct_message_callback`).
-  - Start the server to listen for requests (`start`).
-- **Usage**: Hosts tools like math operations and responds to client requests.
-- **Example**: Add and run a math server:
-  ```python
-  server = NostrMCPServer("Math MCP Server", client)
-  server.add_tool(lambda a, b: a + b, name="add")
-  server.start()
-  ```
+# Create an MCP client to call the tool
+mcp_client = NostrMCPClient(client, mcp_pubkey=client.public_key.hex())
+tools = mcp_client.list_tools()
+print(f"Available tools: {tools}")
+result = mcp_client.call_tool("add", {"a": 5, "b": 3})
+print(f"Result of 5 + 3: {result['content'][0]['text']}")
+```
 
-### 5. `nostr_agent_server.py`
-A server (`NostrAgentServer`) that integrates an external agent API with Nostr for chat-based interactions.
+This example sets up an MCP server that exposes an `add` tool, requiring a payment of 10 satoshis. The client discovers the tool and calls it, handling the payment automatically.
 
-- **Functionality**:
-  - Initialize with an agent URL, satoshis cost, and `NostrClient`.
-  - Fetch agent information (`agent_info`).
-  - Handle chat requests with optional thread IDs (`chat`).
-  - Process direct messages, requiring payments if specified (`_direct_message_callback`).
-  - Start the server to listen for messages (`start`).
-- **Usage**: Bridges Nostr with an external agent service.
-- **Example**: Start an agent server:
-  ```python
-  server = NostrAgentServer(agent_url, 5, client)
-  server.start()
-  ```
+### Notes
++ **Dependencies**: The SDK relies on `pynostr` for Nostr protocol interactions and `bolt11` for invoice decoding. Ensure these are installed (`pip install pynostr python-bolt11`).
++ **Environment Variables**: The SDK uses environment variables (`NOSTR_RELAYS`, `MCP_MATH_PRIVATE_KEY`, `NWC_CONN_STR`, etc.) for configuration, loaded via `dotenv`.
++ **Payment Handling**: Tools or agent interactions requiring satoshis use NWC for invoice creation and payment verification.
++ **Threading**: The SDK uses threading for asynchronous operations, such as listening for messages or monitoring payments.
