@@ -1,6 +1,6 @@
 [project]
 name = "agentstr-sdk"
-version = "0.0.1"
+version = "0.0.2"
 description = "Model Context Protocol (MCP) communication through Nostr."
 requires-python = ">=3.10"
 classifiers = [

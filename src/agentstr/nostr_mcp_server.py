@@ -1,15 +1,22 @@
 import threading
-from typing import Callable, Any
+from typing import Callable, Any, List
 import json
 import time
 from pynostr.event import Event
-from nostr_agents.nostr_client import NostrClient
+from agentstr.nostr_client import NostrClient
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.tools.tool_manager import ToolManager
 
 
 class NostrMCPServer(object):
-    def __init__(self, display_name: str, nostr_client: NostrClient):
+    def __init__(self,
+                 display_name: str,
+                 nostr_client: NostrClient = None,
+                 relays: List[str] = None,
+                 private_key: str = None,
+                 nwc_str: str = None,
+                 ):
+        self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
         self.display_name = display_name
         self.client = nostr_client
         self.tool_to_sats_map = {}

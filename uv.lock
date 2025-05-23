@@ -3,8 +3,8 @@ revision = 1
 requires-python = ">=3.10"
 
 [[package]]
-name = "agentstr"
-version = "0.0.1"
+name = "agentstr-sdk"
+version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "bolt11" },

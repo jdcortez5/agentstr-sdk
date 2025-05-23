@@ -1,4 +1,4 @@
-from nostr_agents.nwc import processNWCstring, tryToPayInvoice, listTx, getBalance, makeInvoice, checkInvoice
+from agentstr.nwc import processNWCstring, tryToPayInvoice, listTx, getBalance, makeInvoice, checkInvoice
 from bolt11.decode import decode
 import time
 

@@ -1,19 +1,24 @@
 import threading
-import time
-from typing import Any
+from typing import Any, List
 import json
 
 from pynostr.event import Event
 from pynostr.key import PrivateKey
 from pynostr.utils import get_timestamp
 
-from nostr_agents.nostr_client import NostrClient
+from agentstr.nostr_client import NostrClient
 
 
 class NostrMCPClient(object):
-    def __init__(self, nostr_client: NostrClient, mcp_pubkey: str):
+    def __init__(self,
+                 mcp_pubkey: str,
+                 nostr_client: NostrClient = None,
+                 relays: List[str] = None,
+                 private_key: str = None,
+                 nwc_str: str = None,
+                 ):
+        self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
         self.mcp_pubkey = mcp_pubkey
-        self.client = nostr_client
         self.tool_to_sats_map = {}
 
     def _set_result_callback(self, tool_name: str, res: list):
