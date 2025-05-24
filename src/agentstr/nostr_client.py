@@ -46,8 +46,8 @@ class NostrClient:
             nwc_str: Nostr Wallet Connect string for payment processing (optional).
         """
         self.relays = relays
-        self.private_key = PrivateKey.from_nsec(private_key)
-        self.public_key = self.private_key.public_key
+        self.private_key = PrivateKey.from_nsec(private_key) if private_key else None
+        self.public_key = self.private_key.public_key if self.private_key else None
         self.nwc_client = NWCClient(nwc_str) if nwc_str else None
 
     def sign(self, event: Event) -> Event:

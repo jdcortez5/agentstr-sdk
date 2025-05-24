@@ -3,7 +3,7 @@ import json
 from typing import Any, List, Callable
 from pynostr.event import Event
 from pynostr.key import PrivateKey
-from pynostr.utils import get_timestamp
+from pynostr.utils import get_timestamp, get_public_key
 from agentstr.nostr_client import NostrClient
 
 
@@ -30,7 +30,7 @@ class NostrMCPClient:
             nwc_str: Nostr Wallet Connect string for payments (optional).
         """
         self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
-        self.mcp_pubkey = mcp_pubkey
+        self.mcp_pubkey = get_public_key(mcp_pubkey).hex()
         self.tool_to_sats_map = {}
 
     def _set_result_callback(self, tool_name: str, res: List) -> Callable[[Event, str], bool]:
@@ -99,25 +99,3 @@ class NostrMCPClient:
             close_after_first_message=True
         )
         return res[0]
-
-if __name__ == "__main__":
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    relays = os.getenv('NOSTR_RELAYS').split(',')
-    private_key = os.getenv('AGENT_PRIVATE_KEY')
-    server_public_key = PrivateKey.from_nsec(os.getenv('MCP_MATH_PRIVATE_KEY')).public_key.hex()
-    nwc_str = os.getenv('NWC_CONN_STR')
-    print(f"Server public key: {server_public_key}")
-    client = NostrClient(relays, private_key, nwc_str)
-    mcp_client = NostrMCPClient(client, mcp_pubkey=server_public_key)
-    tools = mcp_client.list_tools()
-    print(f'Found tools:')
-    print(json.dumps(tools, indent=4))
-    result = mcp_client.call_tool("get_weather", {"city": "Seattle"})
-    print(f'Result: {result}')
-    print(f'The weather in Seattle is: {result["content"][-1]["text"]}')
-    result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
-    print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
-    result = mcp_client.call_tool("get_current_date", {})
-    print(f'The current date is: {result["content"][-1]["text"]}')
