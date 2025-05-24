@@ -15,14 +15,6 @@ def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
     return a * b
 
-def subtract(a: int, b: int) -> int:
-    """Subtract two numbers."""
-    return a - b
-
-def divide(a: int, b: int) -> int:
-    """Divide two numbers (integer division)."""
-    return a // b
-
 server = NostrMCPServer("Math MCP Server", relays=relays, private_key=private_key)
 server.add_tool(add)
 server.add_tool(multiply, name="multiply", description="Multiply two numbers")
