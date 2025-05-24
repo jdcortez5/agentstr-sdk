@@ -6,6 +6,7 @@ The agentstr SDK is designed to integrate MCP functionality with the Nostr proto
 + **NostrClient**: A core client for interacting with Nostr relays, handling events, direct messages, and metadata.
 + **NostrMCPServer**: A server that exposes tools (functions) that clients can call, with optional payment requirements in satoshis via Nostr Wallet Connect (NWC).
 + **NostrMCPClient**: A client that discovers and calls tools on an MCP server, handling payments if required.
++ **NostrRAG**: A Retrieval-Augmented Generation (RAG) system for querying Nostr events.
 + **NostrAgentServer**: A server that interacts with an external agent (e.g., a chatbot) and processes direct messages, with optional payment support.
 + **NWCClient**: A client for Nostr Wallet Connect, managing payments and invoices.
 
