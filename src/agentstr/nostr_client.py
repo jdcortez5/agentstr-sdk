@@ -12,7 +12,7 @@ from pynostr.filters import Filters, FiltersList
 from pynostr.encrypted_dm import EncryptedDirectMessage
 from pynostr.metadata import Metadata
 from pynostr.utils import get_public_key, get_timestamp
-from .nwc_client import NWCClient
+from agentstr.nwc_client import NWCClient
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -83,11 +83,12 @@ class NostrClient:
                                     timeout=timeout, message_callback=message_callback)
         return relay_manager
 
-    def read_posts_by_tag(self, tag: str, limit: int = 10) -> List[dict]:
+    def read_posts_by_tag(self, tag: str = None, tags: List[str] = None, limit: int = 10) -> List[dict]:
         """Read posts containing a specific tag from Nostr relays.
 
         Args:
             tag: The tag to filter posts by.
+            tags: List of tags to filter posts by.
             limit: Maximum number of posts to retrieve.
 
         Returns:
@@ -95,7 +96,7 @@ class NostrClient:
         """
         relay_manager = self.get_relay_manager(timeout=10)
         filter1 = Filters(limit=limit, kinds=[EventKind.TEXT_NOTE])
-        filter1.add_arbitrary_tag("t", [tag])
+        filter1.add_arbitrary_tag("t", tags or [tag])
         subscription_id = uuid.uuid1().hex
         relay_manager.add_subscription_on_all_relays(subscription_id, FiltersList([filter1]))
         relay_manager.run_sync()
