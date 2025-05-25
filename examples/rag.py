@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from agentstr.nostr_rag import NostrRAG
+from agentstr import NostrRAG
 
 load_dotenv()
 

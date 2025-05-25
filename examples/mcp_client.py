@@ -1,7 +1,7 @@
 import os
 import json
 from dotenv import load_dotenv
-from agentstr.nostr_mcp_client import NostrMCPClient
+from agentstr import NostrMCPClient
 from pynostr.key import PrivateKey
 
 load_dotenv()

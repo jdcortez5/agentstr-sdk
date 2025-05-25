@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from agentstr.nostr_mcp_server import NostrMCPServer
+from agentstr import NostrMCPServer
 
 load_dotenv()
 
