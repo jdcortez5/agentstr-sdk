@@ -6,6 +6,9 @@
 Welcome to Agentstr SDK's documentation!
 ======================================
 
+Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol. It provides:
+
+For detailed usage examples and tutorials, check out our `Usage Guide <https://agentstr.com/usage>`_.
 
 .. toctree::
    :maxdepth: 2
