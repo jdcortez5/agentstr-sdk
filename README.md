@@ -1,5 +1,11 @@
 # Agentstr - Nostr Agent Tools
 
+### Links
+
+[SDK Reference](https://agentstr.com/docs)
+[Usage Examples][https://agentstr.com/usage]
+
+
 ## Overview
 The agentstr SDK is designed to integrate MCP functionality with the Nostr protocol, enabling developers to create servers and clients that communicate over Nostr's decentralized relay network. It supports:
 
