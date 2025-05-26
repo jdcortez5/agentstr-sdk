@@ -17,5 +17,4 @@ Modules
    agentstr.nostr_mcp_client
    agentstr.nostr_mcp_server
    agentstr.nostr_rag
-   agentstr.nwc
    agentstr.nwc_client

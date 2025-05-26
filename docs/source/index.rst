@@ -12,7 +12,6 @@ Welcome to Agentstr SDK's documentation!
    :caption: Contents:
 
    agentstr
-   modules
 
 Indices and tables
 ==================
