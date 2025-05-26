@@ -1,4 +1,4 @@
-# Agentstr - Nostr Agent Tools
+# Agentstr SDK
 
 [![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://agentstr.com/docs)
 [![Usage Examples](https://img.shields.io/badge/examples-online-green.svg)](https://agentstr.com/usage)
