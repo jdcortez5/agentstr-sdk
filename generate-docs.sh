@@ -1,3 +1,3 @@
-cd src/
-pdoc agentstr/ -o ../docs/ -d markdown
+cd docs/
+make html
 cd ../
