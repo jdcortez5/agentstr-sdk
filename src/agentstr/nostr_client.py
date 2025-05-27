@@ -37,7 +37,7 @@ class NostrClient:
         public_key (PublicKey): The public key derived from the private key.
         nwc_client (NWCClient | None): Nostr Wallet Connect client for payment processing.
     """
-    def __init__(self, relays: List[str], private_key: str, nwc_str: str = None):
+    def __init__(self, relays: List[str], private_key: str = None, nwc_str: str = None):
         """Initialize the NostrClient.
 
         Args:
@@ -245,15 +245,3 @@ class NostrClient:
         relay_manager = self.get_relay_manager(message_callback=print_dm, timeout=timeout)
         relay_manager.add_subscription_on_all_relays(subscription_id, filters)
         relay_manager.run_sync()
-
-
-if __name__ == '__main__':
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    relays = os.getenv('NOSTR_RELAYS').split(',')
-    private_key = os.getenv('AGENT_PRIVATE_KEY')
-    server_public_key = PrivateKey.from_nsec(os.getenv('MCP_MATH_PRIVATE_KEY')).public_key.hex()
-    client = NostrClient(relays, private_key, None)
-    events = client.read_posts_by_tag('mcp_tool_discovery')
-    print([event.to_dict() for event in events])

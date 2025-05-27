@@ -5,7 +5,7 @@
 
 ## Overview
 
-Agentstr is a powerful toolkit for building agentic applications on the Nostr protocol. It seamlessly integrates MCP (Model Context Protocol) functionality with Nostr's decentralized network.
+Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol. It integrates MCP (Model Context Protocol) functionality with Nostr and the Lightning Network.
 
 ## Core Features
 

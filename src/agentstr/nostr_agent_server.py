@@ -146,15 +146,3 @@ class NostrAgentServer:
         time.sleep(3)
         print(f'Starting message listener for {self.client.public_key.bech32()}')
         self.client.direct_message_listener(callback=self._direct_message_callback)
-
-if __name__ == "__main__":
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    relays = os.getenv('NOSTR_RELAYS').split(',')
-    private_key = os.getenv('NOSTR_SERVER_PRIVATE_KEY')
-    nwc_str = os.getenv('NWC_CONN_STR')
-    agent_url = os.getenv('AGENT_URL')
-    client = NostrClient(relays, private_key, nwc_str)
-    server = NostrAgentServer(agent_url, 0, client)
-    server.start()

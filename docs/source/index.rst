@@ -10,6 +10,8 @@ Agentstr SDK is a powerful toolkit for building agentic applications on the Nost
 
 For detailed usage examples and tutorials, check out our `Usage Guide <https://agentstr.com/usage>`_.
 
+Checkout the code on `GitHub <https://github.com/ehallmark/agentstr>`_.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:

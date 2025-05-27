@@ -91,7 +91,8 @@ Previous hashtags: {history}
             Document: A LangChain Document with the event's content and ID.
         """
         content = event.get('content', '')
-        return Document(page_content=content, id=event.get('id'))
+
+        return Document(page_content=content, id=event.get('id'), metadata=event)
 
     def build_knowledge_base(self, question: str, limit: int = 10) -> List[dict]:
         """Build a knowledge base from Nostr events relevant to the question.
@@ -119,7 +120,20 @@ Previous hashtags: {history}
         
         return events
 
-    def query(self, question: str) -> str:
+    def retrieve(self, question: str, limit: int = 5) -> List[Document]:
+        """Retrieve relevant documents from the knowledge base.
+
+        Args:
+            question: The user's question
+            limit: Maximum number of documents to retrieve
+
+        Returns:
+            List of retrieved documents
+        """
+        self.build_knowledge_base(question)
+        return self.vector_store.similarity_search(question, k=limit)
+
+    def query(self, question: str, limit: int = 5) -> str:
         """Ask a question using the knowledge base.
 
         Args:
@@ -129,10 +143,8 @@ Previous hashtags: {history}
             The generated response
         """
 
-        self.build_knowledge_base(question)
-
         # Get relevant documents
-        relevant_docs = self.vector_store.similarity_search(question, k=5)
+        relevant_docs = self.retrieve(question, limit)
         
         # Generate response using the LLM
         template = """
