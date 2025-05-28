@@ -251,7 +251,7 @@ class NostrClient:
                 relay_manager.close_subscription_on_all_relays(subscription_id)
 
         relay_manager = self.get_relay_manager(message_callback=on_event, timeout=timeout)
-        relay_manager.add_subscription_on_all_relays(subscription_id, filters)
+        relay_manager.add_subscription_on_all_relays(subscription_id, FiltersList([filters]))
         relay_manager.run_sync()
 
 

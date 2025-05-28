@@ -13,9 +13,9 @@ agent_url = 'http://localhost:8000'
 # Create the server
 server = NostrAgentServer(
     agent_url=agent_url,
-    satoshis=100,  # Satoshis required for agent interaction
     relays=relays,
-    private_key=private_key)
+    private_key=private_key,
+    nwc_str=nwc_str)
 
 # Start the server
 server.start()

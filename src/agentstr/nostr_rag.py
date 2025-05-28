@@ -8,6 +8,7 @@ try:
     from langchain_core.messages import HumanMessage
     from langchain_openai import ChatOpenAI
 except ImportError:
+    import logging
     logging.warning("Langchain not found. Please install it to use NostrRAG. `pip install agentstr-sdk[rag]`")
     FakeEmbeddings = 'FakeEmbeddings'
     InMemoryVectorStore = 'InMemoryVectorStore'

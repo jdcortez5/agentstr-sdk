@@ -26,7 +26,7 @@ class NostrAgentServer:
     """
     def __init__(self, nostr_client: NostrClient = None,
                  relays: List[str] = None, private_key: str = None, nwc_str: str = None, agent_url:str = None, chat_url_path: str = '/chat', info_url_path: str = '/info', agent_info: AgentCard = None, agent_callable: Callable[[ChatInput], str] = None,
-                 note_filters: NoteFilters = None):
+                 note_filters: NoteFilters = None, router_llm: Any = None):
         """Initialize the agent server. If agent_info and agent_callable are provided, agent_url, chat_url_path, and info_url_path are ignored.
 
         Args:
@@ -211,7 +211,7 @@ class NostrAgentServer:
         """Start the agent server, updating metadata and listening for direct messages and notes."""
         thr = threading.Thread(
             target=self.client.update_metadata,
-            kwargs={'name': 'agent_server', 'display_name': self._agent_info['name'], 'about': json.dumps(self.agent_info())}
+            kwargs={'name': 'agent_server', 'display_name': self.agent_info().name, 'about': self.agent_info().model_dump_json()}
         )
         print(f'Updating metadata for {self.client.public_key.bech32()}')
         thr.start()
