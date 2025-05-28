@@ -1,10 +1,7 @@
-import os
-from dotenv import load_dotenv
 from agentstr import NostrClient
 
-load_dotenv()
-
-relays = os.getenv('NOSTR_RELAYS').split(',')
+# Define relays
+relays = ['wss://some.relay.io']
 
 client = NostrClient(relays)
 
