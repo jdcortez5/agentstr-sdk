@@ -39,6 +39,14 @@ agent = dspy.ReAct(
     ]
 )
 
+# Configure LLM
+llm_api_key = 'cashuA1DkpMb...'
+llm_base_url = 'https://api.routstr.com'
+llm_model_name = 'gpt-4o'
+
+# Configure DSPy
+dspy.configure(lm=dspy.LM(model=llm_model_name, api_base=llm_base_url, api_key=llm_api_key, model_type='chat'))
+
 # Define agent callable
 def agent_callable(chat_input: ChatInput) -> str:
     return agent(user_request=chat_input.messages[-1]).process_result
