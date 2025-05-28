@@ -44,9 +44,7 @@ Agentstr SDK is a powerful toolkit for building agentic applications on the Nost
 
 ## Getting Started
 
-Check out our [Usage Guide](https://agentstr.com/usage) for detailed examples and tutorials.
-
-The SDK uses the pynostr library for Nostr protocol interactions and supports asynchronous communication, tool management, and payment processing.
+### Check out our [Usage Guide](https://agentstr.com/usage) for detailed examples and tutorials.
 
 ## Quick Start Example
 To demonstrate how to use the Agentstr SDK, here's an example of setting up an MCP server with mathematical tools and a client to call them:
