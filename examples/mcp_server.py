@@ -1,12 +1,8 @@
-import os
-from dotenv import load_dotenv
 from agentstr import NostrMCPServer
 
-load_dotenv()
-
 # Define relays and private key
-relays = os.getenv('NOSTR_RELAYS').split(',')
-private_key = os.getenv('MCP_MATH_PRIVATE_KEY')
+relays   = ['wss://some.relay.io']
+private_key = 'nsec...'
 
 # Define tools
 def add(a: int, b: int) -> int:
