@@ -117,12 +117,28 @@ class NostrAgentServer:
         message = message.strip()
         print(f"Request: {message}")
         try:
-            if self.satoshis > 0:
-                invoice = self.client.nwc_client.make_invoice(amt=self.satoshis, desc="Payment for agent")
-                response = invoice
+            response = None
+            cost_sats = None
+            if self.router_llm:
+                router_response = agent_router_v2(message, self.agent_info(), self.router_llm)
+                if router_response.can_handle:
+                    cost_sats = router_response.cost_sats
+                    response = router_response.user_message
+                else:
+                    response = router_response.user_message
+                    self.client.send_direct_message_to_pubkey(event.pubkey, response)
+                    return
+
+            cost_sats = cost_sats or self.satoshis
+            if cost_sats > 0:
+                invoice = self.client.nwc_client.make_invoice(amt=cost_sats, desc=f"Payment for {self.agent_info().name}")
+                if response is not None:
+                    response = f'{response}\n\nPlease pay {cost_sats} sats: {invoice}'
+                else:
+                    response = invoice
 
                 def on_success():
-                    print(f"Payment succeeded for agent")
+                    print(f"Payment succeeded for {self.agent_info().name}")
                     result = self.chat(message, thread_id=event.pubkey)
                     response = str(result)
                     print(f'On success response: {response}')
