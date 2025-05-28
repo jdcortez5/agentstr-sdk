@@ -104,6 +104,35 @@ class NostrAgentServer:
         """
         return self.agent_callable(ChatInput(messages=[message], thread_id=thread_id))
 
+    def _handle_paid_invoice(self, event: Event, message: str, invoice: str):
+        """Handle a paid invoice."""
+        def on_success():
+            print(f"Payment succeeded for {self.agent_info().name}")
+            result = self.chat(message, thread_id=event.pubkey)
+            response = str(result)
+            print(f'On success response: {response}')
+            thr = threading.Thread(
+                target=self.client.send_direct_message_to_pubkey,
+                args=(event.pubkey, response),
+            )
+            thr.start()
+
+        def on_failure():
+            response = "Payment failed. Please try again."
+            print(f"On failure response: {response}")
+            thr = threading.Thread(
+                target=self.client.send_direct_message_to_pubkey,
+                args=(event.pubkey, response),
+            )
+            thr.start()
+
+        thr = threading.Thread(
+            target=self.client.nwc_client.on_payment_success,
+            kwargs={'invoice': invoice, 'callback': on_success, 'timeout': 900, 'unsuccess_callback': on_failure}
+        )
+        thr.start()
+
+
     def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages for agent interaction.
 
@@ -137,31 +166,7 @@ class NostrAgentServer:
                 else:
                     response = invoice
 
-                def on_success():
-                    print(f"Payment succeeded for {self.agent_info().name}")
-                    result = self.chat(message, thread_id=event.pubkey)
-                    response = str(result)
-                    print(f'On success response: {response}')
-                    thr = threading.Thread(
-                        target=self.client.send_direct_message_to_pubkey,
-                        args=(event.pubkey, response),
-                    )
-                    thr.start()
-
-                def on_failure():
-                    response = "Payment failed. Please try again."
-                    print(f"On failure response: {response}")
-                    thr = threading.Thread(
-                        target=self.client.send_direct_message_to_pubkey,
-                        args=(event.pubkey, response),
-                    )
-                    thr.start()
-
-                thr = threading.Thread(
-                    target=self.client.nwc_client.on_payment_success,
-                    kwargs={'invoice': invoice, 'callback': on_success, 'timeout': 120, 'unsuccess_callback': on_failure}
-                )
-                thr.start()
+                self._handle_paid_invoice(event, message, invoice)
             else:
                 result = self.chat(message, thread_id=event.pubkey)
                 response = str(result)
@@ -195,7 +200,8 @@ class NostrAgentServer:
                 if router_response.cost_sats > 0:
                     invoice = self.client.nwc_client.make_invoice(amt=router_response.cost_sats, desc=f"Payment to {self.agent_info().name}")
                     response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
-                
+                    self._handle_paid_invoice(event, content, invoice)
+
                 self.client.send_direct_message_to_pubkey(event.pubkey, response)
             
         except Exception as e:
