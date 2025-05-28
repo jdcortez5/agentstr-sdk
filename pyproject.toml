@@ -1,6 +1,6 @@
 [project]
 name = "agentstr-sdk"
-version = "0.0.5"
+version = "0.1.0"
 description = "Agentic tools and workflows on Nostr."
 requires-python = ">=3.10"
 classifiers = [

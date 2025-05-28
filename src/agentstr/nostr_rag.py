@@ -1,12 +1,10 @@
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from agentstr.nostr_client import NostrClient
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
 class NostrRAG:
