@@ -12,6 +12,7 @@ Modules
 .. toctree::
    :maxdepth: 2
 
+   agentstr.a2a
    agentstr.nostr_agent_server
    agentstr.nostr_client
    agentstr.nostr_mcp_client

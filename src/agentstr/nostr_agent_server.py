@@ -4,7 +4,8 @@ import time
 from typing import Any, List, Callable
 from pynostr.event import Event
 import requests
-from agentstr import NostrClient, AgentCard, ChatInput
+from agentstr.a2a import AgentCard, ChatInput
+from agentstr.nostr_client import NostrClient
 from pydantic import BaseModel
 
 
