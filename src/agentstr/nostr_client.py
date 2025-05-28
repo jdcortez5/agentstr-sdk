@@ -205,6 +205,56 @@ class NostrClient:
         relay_manager.publish_message(dm_event.to_message())
         relay_manager.run_sync()
 
+    def note_listener(self, callback: Callable[[Event], Any], pubkeys: List[str] = None, 
+                     tags: List[str] = None, followers_only: bool = False, 
+                     following_only: bool = False, timeout: int = 0, 
+                     timestamp: int = None, close_after_first_message: bool = False):
+        """Listen for public notes matching the given filters.
+
+        Args:
+            callback: Function to handle received notes (takes Event as argument).
+            pubkeys: List of pubkeys to filter notes from (hex or bech32 format).
+            tags: List of tags to filter notes by.
+            followers_only: If True, only show notes from users the key follows (not implemented).
+            following_only: If True, only show notes from users following the key (not implemented).
+            timeout: Timeout for listening in seconds (0 for indefinite).
+            timestamp: Filter messages since this timestamp (optional).
+            close_after_first_message: Close subscription after receiving the first message.
+        """
+
+        authors = None
+        if pubkeys:
+            authors = [get_public_key(pk).hex() for pk in pubkeys]        
+        filters = Filters(authors=authors, kinds=[EventKind.TEXT_NOTE],
+                                since=timestamp or get_timestamp(), limit=10)
+        if tags and len(tags) > 0:
+            filters.add_arbitrary_tag("t", tags)
+        
+        # Start subscription
+        subscription_id = uuid.uuid1().hex
+
+        def on_event(message_json, *args):
+            message_type = message_json[0]
+            success = False
+            if message_type == RelayMessageType.EVENT:
+                event = Event.from_dict(message_json[2])
+                if event.id in ack:
+                    return
+                ack.add(event.id)
+                if event.kind == EventKind.TEXT_NOTE:
+                    success = callback(event)
+            elif message_type == RelayMessageType.OK:
+                logging.info(message_json)
+            elif message_type == RelayMessageType.NOTICE:
+                logging.info(message_json)
+            if success and close_after_first_message:
+                relay_manager.close_subscription_on_all_relays(subscription_id)
+
+        relay_manager = self.get_relay_manager(message_callback=on_event, timeout=timeout)
+        relay_manager.add_subscription_on_all_relays(subscription_id, filters)
+        relay_manager.run_sync()
+
+
     def direct_message_listener(self, callback: Callable[[Event, str], Any], recipient_pubkey: str = None,
                                timeout: int = 0, timestamp: int = None, close_after_first_message: bool = False):
         """Listen for incoming encrypted direct messages.
@@ -221,7 +271,7 @@ class NostrClient:
                                       since=timestamp or get_timestamp(), limit=10)])
         subscription_id = uuid.uuid1().hex
 
-        def print_dm(message_json, *args):
+        def on_event(message_json, *args):
             message_type = message_json[0]
             success = False
             if message_type == RelayMessageType.EVENT:
@@ -242,6 +292,6 @@ class NostrClient:
             if success and close_after_first_message:
                 relay_manager.close_subscription_on_all_relays(subscription_id)
 
-        relay_manager = self.get_relay_manager(message_callback=print_dm, timeout=timeout)
+        relay_manager = self.get_relay_manager(message_callback=on_event, timeout=timeout)
         relay_manager.add_subscription_on_all_relays(subscription_id, filters)
         relay_manager.run_sync()

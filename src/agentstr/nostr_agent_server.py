@@ -4,7 +4,7 @@ import time
 from typing import Any, List, Callable
 from pynostr.event import Event
 import requests
-from agentstr.a2a import AgentCard, ChatInput
+from agentstr.a2a import AgentCard, ChatInput, RouterResponse, agent_router_v2
 from agentstr.nostr_client import NostrClient
 from pydantic import BaseModel
 
@@ -14,7 +14,8 @@ class NoteFilters(BaseModel):
 
     nostr_pubkeys: list[str] | None = None
     nostr_tags: list[str] | None = None
-    followers_only: bool = True
+    followers_only: bool = True  # Not implemented
+    following_only: bool = False  # Not implemented
 
 
 class NostrAgentServer:
@@ -39,6 +40,7 @@ class NostrAgentServer:
             agent_info: Agent information (optional).
             agent_callable: Callable to handle agent responses (optional).
             note_filters: Filters for listening to Nostr notes (optional).
+            router_llm: LLM to use for routing (optional).
         """
         self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
         self.agent_url = agent_url
@@ -48,6 +50,7 @@ class NostrAgentServer:
         self._agent_info = agent_info or self._get_agent_info()
         self.satoshis = self._agent_info.satoshis
         self.note_filters = note_filters
+        self.router_llm = router_llm
 
     def _get_agent_info(self) -> AgentCard:
         """Fetch metadata from the agent API.
@@ -156,8 +159,34 @@ class NostrAgentServer:
         )
         thr.start()
 
+    def _note_callback(self, event: Event):
+        """Handle incoming notes that match the filters.
+        
+        Args:
+            event: The Nostr event containing the note.
+        """
+        try:
+            content = event.content
+            print(f"Received note from {event.pubkey}: {content}")
+            
+            router_response = agent_router_v2(content, self.agent_info(), self.router_llm)
+            print(f"Router response: {router_response.model_dump()}")
+
+            if router_response.can_handle:
+                # Formulate and send direct message to the user
+                response = router_response.user_message
+
+                if router_response.cost_sats > 0:
+                    invoice = self.client.nwc_client.make_invoice(amt=router_response.cost_sats, desc=f"Payment to {self.agent_info().name}")
+                    response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
+                
+                self.client.send_direct_message_to_pubkey(event.pubkey, response)
+            
+        except Exception as e:
+            print(f"Error processing note: {e}")
+
     def start(self):
-        """Start the agent server, updating metadata and listening for direct messages."""
+        """Start the agent server, updating metadata and listening for direct messages and notes."""
         thr = threading.Thread(
             target=self.client.update_metadata,
             kwargs={'name': 'agent_server', 'display_name': self._agent_info['name'], 'about': json.dumps(self.agent_info())}
@@ -165,5 +194,23 @@ class NostrAgentServer:
         print(f'Updating metadata for {self.client.public_key.bech32()}')
         thr.start()
         time.sleep(3)
+        
+        # Start note listener if filters are provided (in new thread)
+        if self.note_filters is not None:
+            print('Starting note listener with filters:', self.note_filters.model_dump())
+            thr = threading.Thread(
+                target=self.client.note_listener,
+                kwargs={
+                    'callback': self._note_callback,
+                    'pubkeys': self.note_filters.nostr_pubkeys,
+                    'tags': self.note_filters.nostr_tags,
+                    'followers_only': self.note_filters.followers_only,
+                    'following_only': self.note_filters.following_only
+                }
+            )
+            thr.start()
+        
+        # Start direct message listener
         print(f'Starting message listener for {self.client.public_key.bech32()}')
         self.client.direct_message_listener(callback=self._direct_message_callback)
+        
