@@ -5,7 +5,7 @@
 
 ## Overview
 
-Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol. It integrates MCP (Model Context Protocol) functionality with Nostr and the Lightning Network.
+Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol. It integrates MCP (Model Context Protocol) and A2A (Agent-to-Agent) functionality with Nostr and the Lightning Network.
 
 ## Core Features
 
@@ -111,6 +111,6 @@ print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
 For more examples, see the [examples](examples) directory.
 
 ### Notes
-+ **Environment Variables**: The examples use environment variables (`NOSTR_RELAYS`, `MCP_SERVER_PRIVATE_KEY`, `MCP_CLIENT_PRIVATE_KEY`, `NWC_CONN_STR`, etc.) for configuration, loaded via `dotenv`.
++ **Environment Variables**: Do not hardcode Nostr private keys or NWC connection strings in your code. Use environment variables or some other secure method to store these values.
 + **Payment Handling**: Tools or agent interactions requiring satoshis use NWC for invoice creation and payment verification.
 + **Threading**: The SDK uses threading for asynchronous operations, such as listening for messages or monitoring payments.
