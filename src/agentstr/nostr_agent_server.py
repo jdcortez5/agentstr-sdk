@@ -1,10 +1,19 @@
 import threading
 import json
 import time
-from typing import Any, List
+from typing import Any, List, Callable
 from pynostr.event import Event
 import requests
-from agentstr.nostr_client import NostrClient
+from agentstr import NostrClient, AgentCard, ChatInput
+from pydantic import BaseModel
+
+
+class NoteFilters(BaseModel):
+    """Filters for Nostr notes."""
+
+    nostr_pubkeys: list[str] | None = None
+    nostr_tags: list[str] | None = None
+    followers_only: bool = True
 
 
 class NostrAgentServer:
@@ -12,62 +21,61 @@ class NostrAgentServer:
 
     This server communicates with an external agent (e.g., a chatbot) via an API and
     processes direct messages received over Nostr, with optional payment requirements.
-
-    Attributes:
-        client (NostrClient): Nostr client for communication.
-        agent_url (str): URL of the external agent API.
-        satoshis (int): Satoshis required for agent interaction.
-        _agent_info (dict): Metadata about the agent.
     """
-    def __init__(self, agent_url: str, satoshis: int, chat_url_path: str = '/chat', info_url_path: str = '/info', nostr_client: NostrClient = None,
-                 relays: List[str] = None, private_key: str = None, nwc_str: str = None):
-        """Initialize the agent server.
+    def __init__(self, nostr_client: NostrClient = None,
+                 relays: List[str] = None, private_key: str = None, nwc_str: str = None, agent_url:str = None, chat_url_path: str = '/chat', info_url_path: str = '/info', agent_info: AgentCard = None, agent_callable: Callable[[ChatInput], str] = None,
+                 note_filters: NoteFilters = None):
+        """Initialize the agent server. If agent_info and agent_callable are provided, agent_url, chat_url_path, and info_url_path are ignored.
 
         Args:
-            agent_url: URL of the external agent API.
-            satoshis: Satoshis required for agent interaction.
-            chat_url_path: Path to the chat endpoint of the external agent API.
-            info_url_path: Path to the info endpoint of the external agent API.
             nostr_client: Existing NostrClient instance (optional).
             relays: List of Nostr relay URLs (if no client provided).
             private_key: Nostr private key (if no client provided).
             nwc_str: Nostr Wallet Connect string for payments (optional).
+            agent_url: URL of the external agent API (optional).
+            chat_url_path: Path to the chat endpoint of the external agent API (optional).
+            info_url_path: Path to the info endpoint of the external agent API (optional).
+            agent_info: Agent information (optional).
+            agent_callable: Callable to handle agent responses (optional).
+            note_filters: Filters for listening to Nostr notes (optional).
         """
         self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
         self.agent_url = agent_url
-        self.satoshis = satoshis
         self.chat_url_path = chat_url_path
         self.info_url_path = info_url_path
-        self._agent_info = self._get_agent_info()
+        self.agent_callable = agent_callable or self._chat_http
+        self._agent_info = agent_info or self._get_agent_info()
+        self.satoshis = self._agent_info.satoshis
+        self.note_filters = note_filters
 
-    def _get_agent_info(self) -> dict[str, Any]:
+    def _get_agent_info(self) -> AgentCard:
         """Fetch metadata from the agent API.
 
         Returns:
-            Dictionary containing agent metadata.
+            AgentCard containing agent metadata.
         """
-        return requests.get(f"{self.agent_url}{self.info_url_path}", headers={'Content-Type': 'application/json'}).json()
+        response = requests.get(f"{self.agent_url}{self.info_url_path}", headers={'Content-Type': 'application/json'}).json()
+        return AgentCard.model_validate(response)
 
-    def agent_info(self) -> dict[str, Any]:
+    def agent_info(self) -> AgentCard:
         """Get the agent's metadata.
 
         Returns:
-            Dictionary containing agent metadata.
+            AgentCard containing agent metadata.
         """
         return self._agent_info
 
-    def chat(self, message: str, thread_id: str | None = None) -> Any:
+    def _chat_http(self, chat_input: ChatInput) -> Any:
         """Send a message to the agent and retrieve the response.
 
         Args:
-            message: The message to send to the agent.
-            thread_id: Optional thread ID for conversation context.
+            chat_input: The chat input to send to the agent.
 
         Returns:
             Response from the agent, or an error message.
         """
-        request = {'messages': [message]}
-        if thread_id:
+        request = {'messages': chat_input.messages}
+        if chat_input.thread_id:
             request['thread_id'] = thread_id
         print(f'Sending request: {json.dumps(request)}')
         response = requests.post(f"{self.agent_url}{self.chat_url_path}", headers={'Content-Type': 'application/json'}, json=request)
@@ -79,6 +87,18 @@ class NostrAgentServer:
             result = 'Unknown error'
         print(f'Response: {result}')
         return result
+
+    def chat(self, message: str, thread_id: str | None = None) -> Any:
+        """Send a message to the agent and retrieve the response.
+
+        Args:
+            message: The message to send to the agent.
+            thread_id: Optional thread ID for conversation context.
+
+        Returns:
+            Response from the agent, or an error message.
+        """
+        return self.agent_callable(ChatInput(messages=[message], thread_id=thread_id))
 
     def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages for agent interaction.
