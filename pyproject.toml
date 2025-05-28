@@ -1,6 +1,6 @@
 [project]
 name = "agentstr-sdk"
-version = "0.1.0"
+version = "0.1.1"
 description = "Agentic tools and workflows on Nostr."
 requires-python = ">=3.10"
 classifiers = [
@@ -10,9 +10,6 @@ classifiers = [
 ]
 dependencies = [
     "bolt11>=2.1.1",
-    "langchain>=0.3.25",
-    "langchain-community>=0.3.24",
-    "langchain-openai>=0.3.18",
     "mcp[cli]>=1.6.0",
     "pycryptodome==3.10.1",
     "pydantic>=2.11.3",
@@ -35,3 +32,10 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/ehallmark/agentstr"
 Issues = "https://github.com/ehallmark/agentstr/issues"
+
+[project.optional-dependencies]
+rag = [
+    "langchain>=0.3.25",
+    "langchain-community>=0.3.24",
+    "langchain-openai>=0.3.18",
+]

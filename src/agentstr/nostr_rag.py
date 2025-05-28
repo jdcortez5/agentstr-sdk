@@ -1,11 +1,19 @@
 import json
 from typing import List, Dict, Any
 from agentstr.nostr_client import NostrClient
-from langchain_community.embeddings import FakeEmbeddings
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_core.documents import Document
-from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
+try:
+    from langchain_community.embeddings import FakeEmbeddings
+    from langchain_core.vectorstores import InMemoryVectorStore
+    from langchain_core.documents import Document
+    from langchain_core.messages import HumanMessage
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    logging.warning("Langchain not found. Please install it to use NostrRAG. `pip install agentstr-sdk[rag]`")
+    FakeEmbeddings = 'FakeEmbeddings'
+    InMemoryVectorStore = 'InMemoryVectorStore'
+    Document = 'Document'
+    HumanMessage = 'HumanMessage'
+    ChatOpenAI = 'ChatOpenAI'
 
 class NostrRAG:
     """A Retrieval-Augmented Generation (RAG) system for querying Nostr events.
