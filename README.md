@@ -51,17 +51,21 @@ The SDK uses the pynostr library for Nostr protocol interactions and supports as
 ## Quick Start Example
 To demonstrate how to use the Agentstr SDK, here's an example of setting up an MCP server with mathematical tools and a client to call them:
 
+### Installation
+
+```bash
+pip install agentstr-sdk
+```
+
 ### MCP Server
 ```python
-import os
-from dotenv import load_dotenv
-from agentstr.nostr_mcp_server import NostrMCPServer
+from agentstr import NostrMCPServer
 
-load_dotenv()
+# Define relays and private key
+relays   = ['wss://some.relay.io']
+private_key = 'nsec...'
 
-relays = os.getenv('NOSTR_RELAYS').split(',')
-private_key = os.getenv('MCP_SERVER_PRIVATE_KEY')
-
+# Define tools
 def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
@@ -70,32 +74,36 @@ def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
     return a * b
 
+# Define the server
 server = NostrMCPServer("Math MCP Server", relays=relays, private_key=private_key)
+
+# Add tools
 server.add_tool(add)
 server.add_tool(multiply, name="multiply", description="Multiply two numbers")
+
+# Start the server
 server.start()
 ```
 
 ### MCP Client
 ```python
-import os
-import json
-from dotenv import load_dotenv
-from agentstr.nostr_mcp_client import NostrMCPClient
-from pynostr.key import PrivateKey
+from agentstr import NostrMCPClient
 
-load_dotenv()
+# Define relays and private key
+relays = ['wss://some.relay.io']
+private_key = 'nsec...'
 
-relays = os.getenv('NOSTR_RELAYS').split(',')
-private_key = os.getenv('MCP_CLIENT_PRIVATE_KEY')
-server_public_key = PrivateKey.from_nsec(os.getenv('MCP_SERVER_PRIVATE_KEY')).public_key.bech32()
+# Define MCP server public key
+server_public_key = 'npub...'
 
+# Initialize the client
 mcp_client = NostrMCPClient(mcp_pubkey=server_public_key, relays=relays, private_key=private_key)
 
+# List available tools
 tools = mcp_client.list_tools()
-print(f'Found tools:')
-print(json.dumps(tools, indent=4))
+print(f'Found tools: {json.dumps(tools, indent=4)}')
 
+# Call a tool
 result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
 print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
 ```
@@ -103,7 +111,6 @@ print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
 For more examples, see the [examples](examples) directory.
 
 ### Notes
-+ **Dependencies**: The SDK relies on `pynostr` for Nostr protocol interactions and `bolt11` for invoice decoding. Ensure these are installed (`pip install pynostr python-bolt11`).
 + **Environment Variables**: The examples use environment variables (`NOSTR_RELAYS`, `MCP_SERVER_PRIVATE_KEY`, `MCP_CLIENT_PRIVATE_KEY`, `NWC_CONN_STR`, etc.) for configuration, loaded via `dotenv`.
 + **Payment Handling**: Tools or agent interactions requiring satoshis use NWC for invoice creation and payment verification.
 + **Threading**: The SDK uses threading for asynchronous operations, such as listening for messages or monitoring payments.
