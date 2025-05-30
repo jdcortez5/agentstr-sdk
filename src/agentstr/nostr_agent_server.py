@@ -167,13 +167,16 @@ Only use the following tools: [{skills_used}]
             cost_sats = None
             router_response = None
             if self.router_llm:
-                router_response = agent_router_v2(message, self.agent_info(), self.router_llm)
+                router_response = agent_router_v2(message, self.agent_info(), self.router_llm, thread_id=event.pubkey)
+                response = router_response.user_message
                 if router_response.can_handle:
                     cost_sats = router_response.cost_sats
-                    response = router_response.user_message
                 else:
-                    response = router_response.user_message
-                    self.client.send_direct_message_to_pubkey(event.pubkey, response)
+                    thr = threading.Thread(
+                        target=self.client.send_direct_message_to_pubkey,
+                        args=(event.pubkey, response),
+                    )
+                    thr.start()
                     return
 
             cost_sats = cost_sats or self.satoshis
@@ -189,7 +192,7 @@ Only use the following tools: [{skills_used}]
                 result = self.chat(message, thread_id=event.pubkey)
                 response = str(result)
         except Exception as e:
-            response = f'Error: {e}'
+            response = f'Error in direct message callback: {e}'
         print(f'Response: {response}')
         time.sleep(1)
         thr = threading.Thread(
@@ -208,7 +211,7 @@ Only use the following tools: [{skills_used}]
             content = event.content
             print(f"Received note from {event.pubkey}: {content}")
             
-            router_response = agent_router_v2(content, self.agent_info(), self.router_llm)
+            router_response = agent_router_v2(content, self.agent_info(), self.router_llm, thread_id=event.pubkey)
             print(f"Router response: {router_response.model_dump()}")
 
             if router_response.can_handle:

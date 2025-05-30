@@ -89,7 +89,10 @@ class RouterResponse(BaseModel):
     skills_used: list[str] = []
 
 
-def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable) -> Tuple[bool, int, Optional[str]]:
+CHAT_HISTORY = {}  # Thread id -> [str]
+
+
+def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> Tuple[bool, int, Optional[str]]:
     """Determine if an agent can handle a user's request and calculate the cost.
     
     This function uses an LLM to analyze whether the agent's skills match the user's request
@@ -107,6 +110,12 @@ def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callabl
             - Optional[str]: Explanation or reasoning for the decision
     """
 
+    # check history
+    if thread_id and thread_id in CHAT_HISTORY:
+        user_message = f"{CHAT_HISTORY[thread_id]}\n\n{user_message}"
+    if thread_id:
+        CHAT_HISTORY[thread_id] = user_message
+
     print(f"Agent router: {user_message}")
     print(f"Agent card: {agent_card.model_dump()}")
 
@@ -122,9 +131,9 @@ Skills:"""
     for skill in agent_card.skills:
         prompt += f"\n- {skill.name}: {skill.description}"
     
-    prompt += f"\n\nUser Request: {user_message}\n\n"
+    prompt += f"\n\nUser Request History: \n\n{user_message}\n\n"
     prompt += """
-Analyze if the agent can handle this request based on their skills and description.
+Analyze if the agent can handle this request based on their skills and description and chat history.
 Consider both the agent's capabilities and whether the request matches their purpose.
 
 The agent may need to use multiple skills to handle the request. If so, include all
@@ -191,18 +200,19 @@ Respond with a JSON object with these fields:
         return False, 0, f"Error in agent routing: {str(e)}", []
         
 
-def agent_router_v2(user_message: str, agent_card: AgentCard, llm_callable: callable) -> RouterResponse:
+def agent_router_v2(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
     """Improved version of agent_router with better structured response.
     
     Args:
         user_message: The user's request message.
         agent_card: The AgentCard containing the agent's skills and pricing.
         llm_callable: A callable that takes a prompt and returns an LLM response.
+        thread_id: The ID of the conversation thread. Defaults to None.
         
     Returns:
         RouterResponse: Contains the routing decision and details.
     """
-    can_handle, cost, user_message, skills_used = agent_router(user_message, agent_card, llm_callable)
+    can_handle, cost, user_message, skills_used = agent_router(user_message, agent_card, llm_callable, thread_id)
     
     return RouterResponse(
         can_handle=can_handle,
