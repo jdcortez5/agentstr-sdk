@@ -4,7 +4,7 @@ import time
 from typing import Any, List, Callable
 from pynostr.event import Event
 import requests
-from agentstr.a2a import AgentCard, ChatInput, agent_router_v2
+from agentstr.a2a import AgentCard, ChatInput, agent_router_v2, RouterResponse
 from agentstr.nostr_client import NostrClient
 from pydantic import BaseModel
 
@@ -80,7 +80,7 @@ class NostrAgentServer:
         """
         request = {'messages': chat_input.messages}
         if chat_input.thread_id:
-            request['thread_id'] = thread_id
+            request['thread_id'] = chat_input.thread_id
         print(f'Sending request: {json.dumps(request)}')
         response = requests.post(f"{self.agent_url}{self.chat_url_path}", headers={'Content-Type': 'application/json'}, json=request)
         try:
@@ -104,8 +104,22 @@ class NostrAgentServer:
         """
         return self.agent_callable(ChatInput(messages=[message], thread_id=thread_id))
 
-    def _handle_paid_invoice(self, event: Event, message: str, invoice: str):
+    def _handle_paid_invoice(self, event: Event, message: str, invoice: str, router_response: RouterResponse = None):
         """Handle a paid invoice."""
+        if router_response:
+            skills_used = ', '.join(router_response.skills_used)
+            message = f'''I'd like to follow up on our previous exchange:
+
+Your Request:
+{message}
+
+Your Response:
+{router_response.user_message}
+
+Could you please proceed with the next steps or provide an update on this matter?
+
+Only use the following tools: [{skills_used}]
+'''
         def on_success():
             print(f"Payment succeeded for {self.agent_info().name}")
             result = self.chat(message, thread_id=event.pubkey)
@@ -140,14 +154,18 @@ class NostrAgentServer:
             event: The Nostr event containing the message.
             message: The message content.
         """
-        if message.strip().startswith('{'):
-            print(f'Ignoring non-chat messages')
+        if message.strip().startswith('{') or message.strip().startswith('['):
+            print(f'Ignoring JSON messages')
+            return
+        elif message.strip().startswith('lnbc') and ' ' not in message.strip():
+            print(f'Ignoring lightning invoices')
             return
         message = message.strip()
         print(f"Request: {message}")
         try:
             response = None
             cost_sats = None
+            router_response = None
             if self.router_llm:
                 router_response = agent_router_v2(message, self.agent_info(), self.router_llm)
                 if router_response.can_handle:
@@ -166,7 +184,7 @@ class NostrAgentServer:
                 else:
                     response = invoice
 
-                self._handle_paid_invoice(event, message, invoice)
+                self._handle_paid_invoice(event, message, invoice, router_response)
             else:
                 result = self.chat(message, thread_id=event.pubkey)
                 response = str(result)
@@ -200,9 +218,14 @@ class NostrAgentServer:
                 if router_response.cost_sats > 0:
                     invoice = self.client.nwc_client.make_invoice(amt=router_response.cost_sats, desc=f"Payment to {self.agent_info().name}")
                     response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
-                    self._handle_paid_invoice(event, content, invoice)
+                    self._handle_paid_invoice(event, content, invoice, router_response)
 
-                self.client.send_direct_message_to_pubkey(event.pubkey, response)
+                time.sleep(1)
+                thr = threading.Thread(
+                    target=self.client.send_direct_message_to_pubkey,
+                    args=(event.pubkey, response),
+                )
+                thr.start()
             
         except Exception as e:
             print(f"Error processing note: {e}")

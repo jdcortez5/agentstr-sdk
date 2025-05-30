@@ -1,3 +1,4 @@
+import json
 from typing import Any, Tuple, Optional
 from pydantic import BaseModel
 
@@ -86,7 +87,7 @@ class RouterResponse(BaseModel):
     cost_sats: int = 0
     user_message: str = ""
     skills_used: list[str] = []
-    
+
 
 def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable) -> Tuple[bool, int, Optional[str]]:
     """Determine if an agent can handle a user's request and calculate the cost.
@@ -105,48 +106,54 @@ def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callabl
             - int: Cost in satoshis (0 if free or not applicable)
             - Optional[str]: Explanation or reasoning for the decision
     """
+
+    print(f"Agent router: {user_message}")
+    print(f"Agent card: {agent_card.model_dump()}")
+
     # Prepare the prompt for the LLM
     prompt = f"""You are an agent router that determines if an agent can handle a user's request.
-    
-    Agent Information:
-    Name: {agent_card.name}
-    Description: {agent_card.description}
-    Base Price: {agent_card.satoshis or 'Free'}
-    
-    Skills:"""
+
+Agent Information:
+Name: {agent_card.name}
+Description: {agent_card.description}
+
+Skills:"""
     
     for skill in agent_card.skills:
-        prompt += f"\n- {skill.name}: {skill.description} (Cost: {skill.satoshis or 'Included'})"
+        prompt += f"\n- {skill.name}: {skill.description}"
     
     prompt += f"\n\nUser Request: {user_message}\n\n"
     prompt += """
-    Analyze if the agent can handle this request based on their skills and description.
-    Consider both the agent's capabilities and whether the request matches their purpose.
-    
-    The agent may need to use multiple skills to handle the request. If so, include all
-    relevant skills.
-    
-    The user_message should be a friendly, conversational message that:
-    - Confirms the action to be taken
-    - Explains what will be done in simple terms
-    - Asks for confirmation to proceed
-    - Is concise (1-2 sentences max)
+Analyze if the agent can handle this request based on their skills and description.
+Consider both the agent's capabilities and whether the request matches their purpose.
 
-    Respond with a JSON object with these fields:
-    {
-        "can_handle": boolean,    # Whether the agent can handle this request
-        "user_message": string,   # Friendly message to ask the user if they want to proceed
-        "skills_used": [string]   # Names of skills being used, if any
-    }
+The agent may need to use multiple skills to handle the request. If so, include all
+relevant skills.
+
+The user_message should be a friendly, conversational message that:
+- Confirms the action to be taken
+- Explains what will be done in simple terms
+- Asks for confirmation to proceed
+- Is concise (1-2 sentences max)
+
+Respond with a JSON object with these fields:
+{
+    "can_handle": boolean,    # Whether the agent can handle this request
+    "user_message": string,   # Friendly message to ask the user if they want to proceed
+    "skills_used": [string]   # Names of skills being used, if any
+}
     """
-    
+    print(f'Prompt: {prompt}')
     try:
         # Get the LLM response
         response = llm_callable(prompt)
         
+        # Seek to first { and last }
+        response = response[response.find('{'):response.rfind('}')+1]
+        print(f'LLM response: {response}')
+
         # Parse the response
         try:
-            import json
             result = json.loads(response.strip())
             can_handle = result.get('can_handle', False)
             user_message = result.get('user_message', '')
@@ -168,16 +175,19 @@ def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callabl
                     # Only use skill-based pricing if at least one skill has a price
                     if skill_cost > 0:
                         cost = skill_cost
-                # Otherwise use base price if no skill prices are set
-                elif agent_card.satoshis is not None:
-                    cost = agent_card.satoshis
+                # Add base price to skill-based pricing
+                if agent_card.satoshis is not None:
+                    cost += agent_card.satoshis
                 
+            print(f'Router response: {can_handle}, {cost}, {user_message}, {skills_used}')
             return can_handle, cost, user_message, skills_used
             
         except (json.JSONDecodeError, ValueError) as e:
+            print(f'Error parsing LLM response: {str(e)}')
             return False, 0, f"Error parsing LLM response: {str(e)}", []
             
     except Exception as e:
+        print(f'Error in agent routing: {str(e)}')
         return False, 0, f"Error in agent routing: {str(e)}", []
         
 

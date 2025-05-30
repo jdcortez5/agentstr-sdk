@@ -1,5 +1,6 @@
 import threading
 import json
+import time
 from typing import Any, List, Callable
 from pynostr.event import Event
 from pynostr.key import PrivateKey
@@ -43,14 +44,19 @@ class NostrMCPClient:
         Returns:
             Callback function that processes server responses and handles payments.
         """
+        payments = set([])
         def inner(event: Event, message: str) -> bool:
             try:
                 print(f'MCP Client received message: {message}')
                 if isinstance(message, str) and message.startswith('ln'):
+                    if len(payments) > 0:
+                        print(f'Already paid for this tool call. Returning now.')
+                        return False
                     invoice = message.strip()
                     print(f'Paying invoice: {invoice}')
                     self.client.nwc_client.try_pay_invoice(invoice=invoice, amt=self.tool_to_sats_map[tool_name])
-                    return False  # Keep listening
+                    payments.add(invoice)
+                    return False  # Keep listening but don't make any more payments
                 res[0] = json.loads(message)
                 return True
             except Exception as e:
@@ -82,7 +88,6 @@ class NostrMCPClient:
             Response dictionary from the server, or None if no response.
         """
         timestamp = get_timestamp()
-        timeout = 20 if self.tool_to_sats_map.get(name) else 3
         thr = threading.Thread(
             target=self.client.send_direct_message_to_pubkey,
             args=(self.mcp_pubkey, json.dumps({
@@ -91,11 +96,19 @@ class NostrMCPClient:
         )
         thr.start()
         res = [None]
-        self.client.direct_message_listener(
-            callback=self._set_result_callback(name, res),
-            recipient_pubkey=self.mcp_pubkey,
-            timeout=timeout,
-            timestamp=timestamp,
-            close_after_first_message=True
+        thr = threading.Thread(
+            target=self.client.direct_message_listener,
+            kwargs={
+                'callback': self._set_result_callback(name, res),
+                'recipient_pubkey': self.mcp_pubkey,
+                'timeout': timeout,
+                'timestamp': timestamp,
+                'close_after_first_message': True
+            }
         )
+        thr.start()
+        t0 = time.time()
+        while res[0] is None and time.time() < t0 + timeout:
+            time.sleep(0.1)
+        
         return res[0]
