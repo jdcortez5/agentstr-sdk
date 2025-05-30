@@ -62,7 +62,7 @@ class NostrClient:
         event.sign(self.private_key.hex())
         return event
 
-    def get_relay_manager(self, message_callback: Callable = log_callback, timeout: int = 2,
+    def get_relay_manager(self, message_callback: Callable = log_callback, timeout: int = 3,
                           error_threshold: int = 3, close_on_eose: bool = False,
                           policy: RelayPolicy = RelayPolicy()) -> RelayManager:
         """Create and configure a relay manager for Nostr communication.

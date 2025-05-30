@@ -48,7 +48,7 @@ class NostrMCPClient:
         def inner(event: Event, message: str) -> bool:
             try:
                 print(f'MCP Client received message: {message}')
-                if isinstance(message, str) and message.startswith('ln'):
+                if isinstance(message, str) and message.startswith('lnbc'):
                     if len(payments) > 0:
                         print(f'Already paid for this tool call. Returning now.')
                         return False
