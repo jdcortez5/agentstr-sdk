@@ -25,7 +25,8 @@ class NostrAgentServer:
     processes direct messages received over Nostr, with optional payment requirements.
     """
     def __init__(self, nostr_client: NostrClient = None,
-                 relays: List[str] = None, private_key: str = None, nwc_str: str = None, agent_url:str = None, chat_url_path: str = '/chat', info_url_path: str = '/info', agent_info: AgentCard = None, agent_callable: Callable[[ChatInput], str] = None,
+                 relays: List[str] = None, private_key: str = None, nwc_str: str = None, agent_url:str = None, chat_url_path: str = '/chat', info_url_path: str = '/info', 
+                 agent_info: AgentCard = None, agent_callable: Callable[[ChatInput], str] = None,
                  note_filters: NoteFilters = None, router_llm: Any = None):
         """Initialize the agent server. If agent_info and agent_callable are provided, agent_url, chat_url_path, and info_url_path are ignored.
 
