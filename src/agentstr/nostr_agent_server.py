@@ -125,20 +125,13 @@ Only use the following tools: [{skills_used}]
             result = self.chat(message, thread_id=event.pubkey)
             response = str(result)
             print(f'On success response: {response}')
-            thr = threading.Thread(
-                target=self.client.send_direct_message_to_pubkey,
-                args=(event.pubkey, response),
-            )
-            thr.start()
+            self.client.send_direct_message_to_pubkey(event.pubkey, response)
+
 
         def on_failure():
             response = "Payment failed. Please try again."
             print(f"On failure response: {response}")
-            thr = threading.Thread(
-                target=self.client.send_direct_message_to_pubkey,
-                args=(event.pubkey, response),
-            )
-            thr.start()
+            self.client.send_direct_message_to_pubkey(event.pubkey, response)
 
         thr = threading.Thread(
             target=self.client.nwc_client.on_payment_success,
@@ -161,22 +154,19 @@ Only use the following tools: [{skills_used}]
             print(f'Ignoring lightning invoices')
             return
         message = message.strip()
+        invoice = None
+        router_response = None
         print(f"Request: {message}")
         try:
             response = None
             cost_sats = None
-            router_response = None
             if self.router_llm:
                 router_response = agent_router_v2(message, self.agent_info(), self.router_llm, thread_id=event.pubkey)
                 response = router_response.user_message
                 if router_response.can_handle:
                     cost_sats = router_response.cost_sats
                 else:
-                    thr = threading.Thread(
-                        target=self.client.send_direct_message_to_pubkey,
-                        args=(event.pubkey, response),
-                    )
-                    thr.start()
+                    self.client.send_direct_message_to_pubkey(event.pubkey, response)
                     return
 
             cost_sats = cost_sats or self.satoshis
@@ -186,20 +176,17 @@ Only use the following tools: [{skills_used}]
                     response = f'{response}\n\nPlease pay {cost_sats} sats: {invoice}'
                 else:
                     response = invoice
-
-                self._handle_paid_invoice(event, message, invoice, router_response)
             else:
                 result = self.chat(message, thread_id=event.pubkey)
                 response = str(result)
         except Exception as e:
             response = f'Error in direct message callback: {e}'
         print(f'Response: {response}')
-        time.sleep(1)
-        thr = threading.Thread(
-            target=self.client.send_direct_message_to_pubkey,
-            args=(event.pubkey, response),
-        )
-        thr.start()
+        time.sleep(0.1)
+        self.client.send_direct_message_to_pubkey(event.pubkey, response)
+        if invoice:
+            self._handle_paid_invoice(event, message, invoice, router_response)
+
 
     def _note_callback(self, event: Event):
         """Handle incoming notes that match the filters.
@@ -224,11 +211,7 @@ Only use the following tools: [{skills_used}]
                     self._handle_paid_invoice(event, content, invoice, router_response)
 
                 time.sleep(1)
-                thr = threading.Thread(
-                    target=self.client.send_direct_message_to_pubkey,
-                    args=(event.pubkey, response),
-                )
-                thr.start()
+                self.client.send_direct_message_to_pubkey(event.pubkey, response)
             
         except Exception as e:
             print(f"Error processing note: {e}")
@@ -241,7 +224,7 @@ Only use the following tools: [{skills_used}]
         )
         print(f'Updating metadata for {self.client.public_key.bech32()}')
         thr.start()
-        time.sleep(3)
+        time.sleep(1)
         
         # Start note listener if filters are provided (in new thread)
         if self.note_filters is not None:

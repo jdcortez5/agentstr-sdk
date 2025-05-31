@@ -111,20 +111,12 @@ class NostrMCPServer:
                         result = self.call_tool(tool_name, arguments)
                         response = {"content": [{"type": "text", "text": str(result)}]}
                         print(f'On success response: {response}')
-                        thr = threading.Thread(
-                            target=self.client.send_direct_message_to_pubkey,
-                            args=(event.pubkey, json.dumps(response)),
-                        )
-                        thr.start()
+                        self.client.send_direct_message_to_pubkey(event.pubkey, json.dumps(response))
 
                     def on_failure():
                         response = {"error": f"Payment failed for {tool_name}"}
                         print(f"On failure response: {response}")
-                        thr = threading.Thread(
-                            target=self.client.send_direct_message_to_pubkey,
-                            args=(event.pubkey, json.dumps(response)),
-                        )
-                        thr.start()
+                        self.client.send_direct_message_to_pubkey(event.pubkey, json.dumps(response))
 
                     thr = threading.Thread(
                         target=self.client.nwc_client.on_payment_success,
@@ -141,12 +133,8 @@ class NostrMCPServer:
         if not isinstance(response, str):
             response = json.dumps(response)
         print(f'Response: {response}')
-        time.sleep(1)
-        thr = threading.Thread(
-            target=self.client.send_direct_message_to_pubkey,
-            args=(event.pubkey, response),
-        )
-        thr.start()
+        time.sleep(0.1)
+        self.client.send_direct_message_to_pubkey(event.pubkey, response)
 
     def start(self):
         """Start the MCP server, updating metadata and listening for direct messages."""
@@ -156,6 +144,6 @@ class NostrMCPServer:
         )
         print(f'Updating metadata for {self.client.public_key.bech32()}')
         thr.start()
-        time.sleep(3)
+        time.sleep(1)
         print(f'Starting message listener for {self.client.public_key.bech32()}')
         self.client.direct_message_listener(callback=self._direct_message_callback)

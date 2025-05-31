@@ -87,28 +87,7 @@ class NostrMCPClient:
         Returns:
             Response dictionary from the server, or None if no response.
         """
-        timestamp = get_timestamp()
-        thr = threading.Thread(
-            target=self.client.send_direct_message_to_pubkey,
-            args=(self.mcp_pubkey, json.dumps({
-                'action': 'call_tool', 'tool_name': name, 'arguments': arguments
-            })),
-        )
-        thr.start()
-        res = [None]
-        thr = threading.Thread(
-            target=self.client.direct_message_listener,
-            kwargs={
-                'callback': self._set_result_callback(name, res),
-                'recipient_pubkey': self.mcp_pubkey,
-                'timeout': timeout,
-                'timestamp': timestamp,
-                'close_after_first_message': True
-            }
-        )
-        thr.start()
-        t0 = time.time()
-        while res[0] is None and time.time() < t0 + timeout:
-            time.sleep(0.1)
-        
-        return res[0]
+        return self.client.send_direct_message_to_pubkey(self.mcp_pubkey, json.dumps({
+            'action': 'call_tool', 'tool_name': name, 'arguments': arguments
+        }))
+
