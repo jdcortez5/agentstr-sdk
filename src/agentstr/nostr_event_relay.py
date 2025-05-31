@@ -24,7 +24,7 @@ class EventRelay(object):
         self.public_key = self.private_key.public_key if self.private_key else None
 
 
-    def get_events(self, filters: Filters, limit: int = 10, timeout: int = 30) -> List[Event]:
+    def get_events(self, filters: Filters, limit: int = 10, timeout: int = 30, close_on_eose: bool = True) -> List[Event]:
         limit = filters.limit if filters.limit else limit
         sid = uuid.uuid4().hex
         subscription = ["REQ", sid, filters.to_dict()]
@@ -37,6 +37,7 @@ class EventRelay(object):
         while time.time() < t0 + timeout and found < limit:      
             response = ws.recv()
             response = json.loads(response)
+            print(f"Received full message in get_events: {response}")
             if (len(response) > 2):
                 found += 1
                 print(f"Received message {found} in get_event: {response[2]}")
@@ -44,14 +45,16 @@ class EventRelay(object):
             else:
                 if response[0] == 'EOSE':
                     print('Received EOSE in get_events')
-                    break
+                    if close_on_eose:
+                        print('Closing connection on EOSE.')
+                        break
                 print(f"Invalid event: {response}")
         ws.close()
 
         return events
 
-    def get_event(self, filters: Filters, timeout: int = 30) -> Event:
-        events = self.get_events(filters, limit=1, timeout=timeout)
+    def get_event(self, filters: Filters, timeout: int = 30, close_on_eose: bool = True) -> Event:
+        events = self.get_events(filters, limit=1, timeout=timeout, close_on_eose=close_on_eose)
         if len(events) > 0:
             return events[0]
         else:
@@ -70,37 +73,48 @@ class EventRelay(object):
         ws.close()
         return response
 
-    def send_receive_message(self, message: str | dict, recipient_pubkey: str, timeout: int = 30) -> DecryptedMessage | None:
+    def decrypt_message(self, event: Event) -> DecryptedMessage | None:
+        if event and event.has_pubkey_ref(self.public_key.hex()):
+            rdm = EncryptedDirectMessage.from_event(event)
+            rdm.decrypt(self.private_key.hex(), public_key_hex=event.pubkey)
+            print(f"New dm received: {event.date_time()} {rdm.cleartext_content}")
+            return DecryptedMessage(
+                event=event,
+                message=rdm.cleartext_content
+            )
+        return None
+
+    def receive_message(self, author_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
+        authors = [author_pubkey]
+        filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
+                            pubkey_refs=[self.public_key.hex()], since=timestamp or get_timestamp(), limit=1)
+        event = self.get_event(filters, timeout, close_on_eose=False)
+        return self.decrypt_message(event)
+
+    def send_receive_message(self, message: str | dict, recipient_pubkey: str, timeout: int = 30, expect_response: bool = True) -> DecryptedMessage | None:
         recipient = get_public_key(recipient_pubkey)
         dm = EncryptedDirectMessage()
+
         if isinstance(message, dict):
             message = json.dumps(message)
+
         dm.encrypt(self.private_key.hex(), cleartext_content=message, recipient_pubkey=recipient.hex())
         dm_event = dm.to_event()
 
         timestamp = dm_event.created_at
         authors = [recipient.hex()]
-
         filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
-                                      since=timestamp+1, limit=1)
-        
+                            pubkey_refs=[self.public_key.hex()], since=timestamp, limit=1)
         self.send_event(dm_event)
-        response = self.get_event(filters, timeout)
-
-        if response and response.has_pubkey_ref(self.public_key.hex()):
-            rdm = EncryptedDirectMessage.from_event(response)
-            rdm.decrypt(self.private_key.hex(), public_key_hex=response.pubkey)
-            print(f"New dm received: {response.date_time()} {rdm.cleartext_content}")
-            return DecryptedMessage(
-                event=response,
-                message=rdm.cleartext_content
-            )
+        if expect_response:
+            response = self.get_event(filters, timeout, close_on_eose=False)
+            return self.decrypt_message(response)
         return None
 
     def event_listener(self, filters: Filters, callback: Callable[[Event], None], timeout: int = 0):
         sid = uuid.uuid4().hex
         subscription = ["REQ", sid, filters.to_dict()]
-        print(f'Sending subscription: {json.dumps(subscription)}')
+        print(f'Sending note subscription: {json.dumps(subscription)}')
         t0 = time.time()
         ws = create_connection(self.relay)
         ws.send(json.dumps(subscription))
@@ -110,15 +124,13 @@ class EventRelay(object):
             if (len(response) > 2):
                 print(f"Received message in event_listener: {response[2]}")
                 callback(Event.from_dict(response[2]))
-            else:
-                print(f"Invalid event: {response}")
             time.sleep(0.1)
         ws.close()
 
     def direct_message_listener(self, filters: Filters, callback: Callable[[Event, str], None], timeout: int = 0):
         sid = uuid.uuid4().hex
         subscription = ["REQ", sid, filters.to_dict()]
-        print(f'Sending subscription: {json.dumps(subscription)}')
+        print(f'Sending DM subscription: {json.dumps(subscription)}')
         t0 = time.time()
         ws = create_connection(self.relay)
         ws.send(json.dumps(subscription))
@@ -128,12 +140,9 @@ class EventRelay(object):
             if (len(response) > 2):
                 #print(f"Received message in event_listener: {response[2]}")
                 response = Event.from_dict(response[2])
-                if response and response.has_pubkey_ref(self.public_key.hex()):
-                    rdm = EncryptedDirectMessage.from_event(response)
-                    rdm.decrypt(self.private_key.hex(), public_key_hex=response.pubkey)
-                    print(f"New dm received: {response.date_time()} {rdm.cleartext_content}")
-                    callback(response, rdm.cleartext_content)
-            else:
-                print(f"Invalid event: {response}")
+                response = self.decrypt_message(response)
+                if response:
+                    print(f"New dm received: {response.event.date_time()} {response.message}")
+                    callback(response.event, response.message)
             time.sleep(0.1)
         ws.close()

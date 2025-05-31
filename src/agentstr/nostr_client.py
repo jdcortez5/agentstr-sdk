@@ -46,7 +46,10 @@ class NostrClient:
         self.private_key = PrivateKey.from_nsec(private_key) if private_key else None
         self.public_key = self.private_key.public_key if self.private_key else None
         self.nwc_client = NWCClient(nwc_str) if nwc_str else None
-        self.messenger = EventRelay(self.relays[0], self.private_key)
+
+    @property
+    def messenger(self):
+        return EventRelay(self.relays[0], self.private_key)
 
     def sign(self, event: Event) -> Event:
         """Sign an event with the client's private key.
@@ -145,14 +148,14 @@ class NostrClient:
 
         self.messenger.send_event(metadata.to_event())
 
-    def send_direct_message_to_pubkey(self, recipient_pubkey: str, message: str, timeout: int = 30) -> DecryptedMessage:
+    def send_direct_message_to_pubkey(self, recipient_pubkey: str, message: str, timeout: int = 30, expect_response: bool = True) -> DecryptedMessage:
         """Send an encrypted direct message to a recipient.
 
         Args:
             recipient_pubkey: The recipient's public key.
             message: The message content (string or dict, which will be JSON-encoded).
         """
-        return self.messenger.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout)
+        return self.messenger.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout, expect_response=expect_response)
 
 
     def note_listener(self, callback: Callable[[Event], Any], pubkeys: List[str] = None, 
@@ -196,6 +199,7 @@ class NostrClient:
         """
         authors = [get_public_key(recipient_pubkey).hex()] if recipient_pubkey else None
         filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
-                                      since=timestamp or get_timestamp(), limit=10)
+                                      since=timestamp or get_timestamp(), pubkey_refs=[self.public_key.hex()],
+                                      limit=10)
         
         self.messenger.direct_message_listener(filters, callback)

@@ -111,12 +111,12 @@ class NostrMCPServer:
                         result = self.call_tool(tool_name, arguments)
                         response = {"content": [{"type": "text", "text": str(result)}]}
                         print(f'On success response: {response}')
-                        self.client.send_direct_message_to_pubkey(event.pubkey, json.dumps(response))
+                        self.client.send_direct_message_to_pubkey(event.pubkey, json.dumps(response), expect_response=False)
 
                     def on_failure():
                         response = {"error": f"Payment failed for {tool_name}"}
                         print(f"On failure response: {response}")
-                        self.client.send_direct_message_to_pubkey(event.pubkey, json.dumps(response))
+                        self.client.send_direct_message_to_pubkey(event.pubkey, json.dumps(response), expect_response=False)
 
                     thr = threading.Thread(
                         target=self.client.nwc_client.on_payment_success,
@@ -132,9 +132,9 @@ class NostrMCPServer:
             response = {"content": [{"type": "text", "text": str(e)}]}
         if not isinstance(response, str):
             response = json.dumps(response)
-        print(f'Response: {response}')
+        print(f'MCP Server response: {response}')
         time.sleep(0.1)
-        self.client.send_direct_message_to_pubkey(event.pubkey, response)
+        self.client.send_direct_message_to_pubkey(event.pubkey, response, expect_response=False)
 
     def start(self):
         """Start the MCP server, updating metadata and listening for direct messages."""

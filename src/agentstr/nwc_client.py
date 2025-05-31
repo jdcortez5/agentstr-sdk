@@ -62,6 +62,7 @@ class NWCClient(object):
         Returns:
             dict: A dictionary containing the invoice status information.
         """
+        print(f'Checking invoice: {invoice}')
         return checkInvoice(self.nwc_info, invoice=invoice, payment_hash=payment_hash)
 
     def did_payment_succeed(self, invoice: str = None) -> bool:

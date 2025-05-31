@@ -1,20 +1,19 @@
-import os
-import json
-from dotenv import load_dotenv
 from agentstr import NostrMCPClient
-from pynostr.key import PrivateKey
 
-load_dotenv()
+# Define relays and private key
+relays = ['wss://some.relay.io']
+private_key = 'nsec...'
 
-relays = os.getenv('NOSTR_RELAYS').split(',')
-private_key = os.getenv('AGENT_PRIVATE_KEY')
-server_public_key = PrivateKey.from_nsec(os.getenv('MCP_MATH_PRIVATE_KEY')).public_key.bech32()
+# Define MCP server public key
+server_public_key = 'npub...'
 
+# Initialize the client
 mcp_client = NostrMCPClient(mcp_pubkey=server_public_key, relays=relays, private_key=private_key)
 
+# List available tools
 tools = mcp_client.list_tools()
-print(f'Found tools:')
-print(json.dumps(tools, indent=4))
+print(f'Found tools: {json.dumps(tools, indent=4)}')
 
+# Call a tool
 result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
 print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')

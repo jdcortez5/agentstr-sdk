@@ -120,18 +120,21 @@ Could you please proceed with the next steps or provide an update on this matter
 
 Only use the following tools: [{skills_used}]
 '''
+
+        print(f'Handling paid invoice')
+
         def on_success():
             print(f"Payment succeeded for {self.agent_info().name}")
             result = self.chat(message, thread_id=event.pubkey)
             response = str(result)
             print(f'On success response: {response}')
-            self.client.send_direct_message_to_pubkey(event.pubkey, response)
+            self.client.send_direct_message_to_pubkey(event.pubkey, response, expect_response=False)
 
 
         def on_failure():
             response = "Payment failed. Please try again."
             print(f"On failure response: {response}")
-            self.client.send_direct_message_to_pubkey(event.pubkey, response)
+            self.client.send_direct_message_to_pubkey(event.pubkey, response, expect_response=False)
 
         thr = threading.Thread(
             target=self.client.nwc_client.on_payment_success,
@@ -166,10 +169,11 @@ Only use the following tools: [{skills_used}]
                 if router_response.can_handle:
                     cost_sats = router_response.cost_sats
                 else:
-                    self.client.send_direct_message_to_pubkey(event.pubkey, response)
+                    self.client.send_direct_message_to_pubkey(event.pubkey, response, expected_response=False)
                     return
 
             cost_sats = cost_sats or self.satoshis
+            print(f'Cost sats: {cost_sats}')
             if cost_sats > 0:
                 invoice = self.client.nwc_client.make_invoice(amt=cost_sats, desc=f"Payment for {self.agent_info().name}")
                 if response is not None:
@@ -180,11 +184,16 @@ Only use the following tools: [{skills_used}]
                 result = self.chat(message, thread_id=event.pubkey)
                 response = str(result)
         except Exception as e:
+            # print traceback
+            import traceback
+            print(f'Exception in direct message callback: {e}')
+            print(traceback.format_exc())
             response = f'Error in direct message callback: {e}'
         print(f'Response: {response}')
         time.sleep(0.1)
-        self.client.send_direct_message_to_pubkey(event.pubkey, response)
+        self.client.send_direct_message_to_pubkey(event.pubkey, response, expect_response=False)
         if invoice:
+            print(f'Handling paid invoice')
             self._handle_paid_invoice(event, message, invoice, router_response)
 
 
@@ -210,7 +219,7 @@ Only use the following tools: [{skills_used}]
                     response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
                     self._handle_paid_invoice(event, content, invoice, router_response)
 
-                time.sleep(1)
+                time.sleep(0.1)
                 self.client.send_direct_message_to_pubkey(event.pubkey, response)
             
         except Exception as e:
