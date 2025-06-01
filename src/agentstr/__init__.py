@@ -5,4 +5,4 @@ from agentstr.nostr_mcp_client import NostrMCPClient
 from agentstr.nostr_rag import NostrRAG
 from agentstr.nwc_client import NWCClient
 from agentstr.a2a import AgentCard, Skill, ChatInput
-
+from pynostr.key import PrivateKey, PublicKey

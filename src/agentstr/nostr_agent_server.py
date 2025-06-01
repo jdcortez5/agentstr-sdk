@@ -1,3 +1,4 @@
+import asyncio
 import threading
 import json
 import time
@@ -48,8 +49,8 @@ class NostrAgentServer:
         self.chat_url_path = chat_url_path
         self.info_url_path = info_url_path
         self.agent_callable = agent_callable or self._chat_http
-        self._agent_info = agent_info or self._get_agent_info()
-        self.satoshis = self._agent_info.satoshis
+        self._agent_info = agent_info or (self._get_agent_info() if agent_url else None)
+        self.satoshis = self._agent_info.satoshis if self._agent_info else 0
         self.note_filters = note_filters
         self.router_llm = router_llm
 
@@ -70,7 +71,7 @@ class NostrAgentServer:
         """
         return self._agent_info
 
-    def _chat_http(self, chat_input: ChatInput) -> Any:
+    async def _chat_http(self, chat_input: ChatInput) -> Any:
         """Send a message to the agent and retrieve the response.
 
         Args:
@@ -93,7 +94,7 @@ class NostrAgentServer:
         print(f'Response: {result}')
         return result
 
-    def chat(self, message: str, thread_id: str | None = None) -> Any:
+    async def chat(self, message: str, thread_id: str | None = None) -> Any:
         """Send a message to the agent and retrieve the response.
 
         Args:
@@ -103,9 +104,9 @@ class NostrAgentServer:
         Returns:
             Response from the agent, or an error message.
         """
-        return self.agent_callable(ChatInput(messages=[message], thread_id=thread_id))
+        return await self.agent_callable(ChatInput(messages=[message], thread_id=thread_id))
 
-    def _handle_paid_invoice(self, event: Event, message: str, invoice: str, router_response: RouterResponse = None):
+    async def _handle_paid_invoice(self, event: Event, message: str, invoice: str, router_response: RouterResponse = None):
         """Handle a paid invoice."""
         if router_response:
             skills_used = ', '.join(router_response.skills_used)
@@ -124,27 +125,30 @@ Only use the following tools: [{skills_used}]
 
         print(f'Handling paid invoice')
 
-        def on_success():
+        async def on_success():
             print(f"Payment succeeded for {self.agent_info().name}")
-            result = self.chat(message, thread_id=event.pubkey)
+            result = await self.chat(message, thread_id=event.pubkey)
             response = str(result)
             print(f'On success response: {response}')
-            self.client.send_direct_message(event.pubkey, response)
+            await self.client.send_direct_message(event.pubkey, response)
 
 
-        def on_failure():
+        async def on_failure():
             response = "Payment failed. Please try again."
             print(f"On failure response: {response}")
-            self.client.send_direct_message(event.pubkey, response)
+            await self.client.send_direct_message(event.pubkey, response)
 
-        thr = threading.Thread(
-            target=self.client.nwc_client.on_payment_success,
-            kwargs={'invoice': invoice, 'callback': on_success, 'timeout': 900, 'unsuccess_callback': on_failure}
+        asyncio.create_task(
+            self.client.nwc_client.on_payment_success(
+                invoice=invoice,
+                callback=on_success,
+                timeout=900,
+                unsuccess_callback=on_failure
+            )
         )
-        thr.start()
 
 
-    def _direct_message_callback(self, event: Event, message: str):
+    async def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages for agent interaction.
 
         Args:
@@ -170,11 +174,10 @@ Only use the following tools: [{skills_used}]
                 if router_response.can_handle:
                     cost_sats = router_response.cost_sats
                 else:
-                    self.client.send_direct_message(event.pubkey, response)
+                    await self.client.send_direct_message(event.pubkey, response)
                     return
 
             cost_sats = cost_sats or self.satoshis
-            print(f'Cost sats: {cost_sats}')
             if cost_sats > 0:
                 invoice = self.client.nwc_client.make_invoice(amt=cost_sats, desc=f"Payment for {self.agent_info().name}")
                 if response is not None:
@@ -182,19 +185,19 @@ Only use the following tools: [{skills_used}]
                 else:
                     response = invoice
             else:
-                result = self.chat(message, thread_id=event.pubkey)
+                result = await self.chat(message, thread_id=event.pubkey)
                 response = str(result)
         except Exception as e:
             response = f'Error in direct message callback: {e}'
             
         print(f'Response: {response}')
-        self.client.send_direct_message(event.pubkey, response)
+        await self.client.send_direct_message(event.pubkey, response)
         if invoice:
             print(f'Handling paid invoice')
-            self._handle_paid_invoice(event, message, invoice, router_response)
+            await self._handle_paid_invoice(event, message, invoice, router_response)
 
 
-    def _note_callback(self, event: Event):
+    async def _note_callback(self, event: Event):
         """Handle incoming notes that match the filters.
         
         Args:
@@ -216,36 +219,37 @@ Only use the following tools: [{skills_used}]
                     response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
                     self._handle_paid_invoice(event, content, invoice, router_response)
 
-                self.client.send_direct_message(event.pubkey, response, event_ref=event.id)
+                await self.client.send_direct_message(event.pubkey, response, event_ref=event.id)
             
         except Exception as e:
             print(f"Error processing note: {e}")
 
-    def start(self):
+    async def start(self):
         """Start the agent server, updating metadata and listening for direct messages and notes."""
         print(f'Updating metadata for {self.client.public_key.bech32()}')
-        self.client.update_metadata(
-            name='agent_server',
-            display_name=self.agent_info().name,
-            about=self.agent_info().model_dump_json()
-        )
+        if self.agent_info():
+            await self.client.update_metadata(
+                name='agent_server',
+                display_name=self.agent_info().name,
+                about=self.agent_info().model_dump_json()
+            )
         
+        tasks = []
         # Start note listener if filters are provided (in new thread)
         if self.note_filters is not None:
             print('Starting note listener with filters:', self.note_filters.model_dump())
-            thr = threading.Thread(
-                target=self.client.note_listener,
-                kwargs={
-                    'callback': self._note_callback,
-                    'pubkeys': self.note_filters.nostr_pubkeys,
-                    'tags': self.note_filters.nostr_tags,
-                    'followers_only': self.note_filters.followers_only,
-                    'following_only': self.note_filters.following_only
-                }
+            tasks.append(
+                self.client.note_listener(
+                    callback=self._note_callback,
+                    pubkeys=self.note_filters.nostr_pubkeys,
+                    tags=self.note_filters.nostr_tags,
+                    followers_only=self.note_filters.followers_only,
+                    following_only=self.note_filters.following_only
+                )
             )
-            thr.start()
         
         # Start direct message listener
         print(f'Starting message listener for {self.client.public_key.bech32()}')
-        self.client.direct_message_listener(callback=self._direct_message_callback)
+        
+        await self.client.direct_message_listener(callback=self._direct_message_callback)
         

@@ -1,52 +1,48 @@
-from langchain_mcp_adapters import MultiServerMCPClient
+import os
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
-from langgraph.checkpoint.memory import MemorySaver
+from agentstr import ChatInput, NostrAgentServer
+from dotenv import load_dotenv
 
-# Define relays and private key
-relays = ['wss://some.relay.io']
-private_key = 'nsec...'
+load_dotenv()
 
-# Define Nostr Wallet Connect string to support lightning payments
-nwc_str = 'nostr+walletconnect://...'
+# Get the environment variables
+relays = os.getenv('NOSTR_RELAYS').split(',')
+private_key = os.getenv('EXAMPLE_LANGGRAPH_AGENT_NSEC')
 
-# Define MCP server public key
-server_public_key = 'npub...'
+model = ChatOpenAI(temperature=0,
+                   base_url=os.getenv('LLM_BASE_URL'),
+                   api_key=os.getenv('LLM_API_KEY'),
+                   model_name=os.getenv('LLM_MODEL_NAME'))
 
-# Define LLM base URL and API key
-base_url = 'https://api.routstr.com/v1'
-api_key  = 'cashuA1DkpMb...'
 
-model = ChatOpenAI(temperature=0, 
-                   base_url=base_url,
-                   api_key=api_key,
-                   model_name="gpt-4o")
+# Define tools
+async def get_weather(city: str) -> str:  
+    """Get weather for a given city."""
+    return f"It's always sunny in {city}!"
 
-async def nostr_mcp_agent():
-    # Define MCP Server with Nostr transport
-    async with MultiServerMCPClient(
-        {
-            "nostr-math-mcp": {
-                "relays": relays,
-                "server_public_key": server_public_key,
-                "private_key": private_key,
-                "nwc_str": nwc_str,
-                "transport": "nostr",
-            },
-        }
-    ) as client:
-        # Create the agent
-        agent = create_react_agent(model, client.get_tools(), checkpointer=MemorySaver())
-        yield agent
+
+agent = create_react_agent(
+    model=model,
+    tools=[get_weather],  
+    prompt="You are a helpful assistant"  
+)
+
+# Define agent callable
+async def agent_callable(input: ChatInput) -> str:    
+    result = await agent.ainvoke(
+        {"messages": [{"role": "user", "content": input.messages[-1]}]}
+    )
+    return result["messages"][-1].content
     
+# Create Nostr Agent Server
+async def server():
+    server = NostrAgentServer(relays=relays,
+                              private_key=private_key,
+                              agent_callable=agent_callable)
+    await server.start()
+    
+
 if __name__ == '__main__':
     import asyncio
-
-    # Async function to run the agent
-    async def run():
-        async with nostr_mcp_agent() as agent:
-            async for output in agent.astream({"messages": "what's (4 + 20) * 69?"}, stream_mode="updates"):
-                print(output)
-
-    # Run the agent
-    asyncio.run(run())
+    asyncio.run(server())

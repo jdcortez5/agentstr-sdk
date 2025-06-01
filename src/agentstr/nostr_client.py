@@ -9,7 +9,9 @@ from pynostr.filters import Filters
 from pynostr.metadata import Metadata
 from pynostr.utils import get_public_key, get_timestamp
 from agentstr.nwc_client import NWCClient
-from agentstr.nostr_event_relay import DecryptedMessage, EventRelay
+from agentstr.relay import DecryptedMessage
+from agentstr.relay_manager import RelayManager
+
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -48,8 +50,8 @@ class NostrClient:
         self.nwc_client = NWCClient(nwc_str) if nwc_str else None
 
     @property
-    def messenger(self):
-        return EventRelay(self.relays[0], self.private_key)
+    def relay_manager(self):
+        return RelayManager(self.relays, self.private_key)
 
     def sign(self, event: Event) -> Event:
         """Sign an event with the client's private key.
@@ -63,7 +65,7 @@ class NostrClient:
         event.sign(self.private_key.hex())
         return event
 
-    def read_posts_by_tag(self, tag: str = None, tags: List[str] = None, limit: int = 10) -> List[Event]:
+    async def read_posts_by_tag(self, tag: str = None, tags: List[str] = None, limit: int = 10) -> List[Event]:
         """Read posts containing a specific tag from Nostr relays.
 
         Args:
@@ -77,11 +79,9 @@ class NostrClient:
         filters = Filters(limit=limit, kinds=[EventKind.TEXT_NOTE])
         filters.add_arbitrary_tag("t", tags or [tag])
 
-        return self.messenger.get_events(filters)
+        return await self.relay_manager.get_events(filters)
 
-        
-
-    def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Optional[Metadata]:
+    async def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Optional[Metadata]:
         """Retrieve metadata for a given public key.
 
         Args:
@@ -92,12 +92,12 @@ class NostrClient:
         """
         public_key = get_public_key(public_key if isinstance(public_key, str) else public_key.hex()) if public_key else self.public_key
         filters = Filters(kinds=[EventKind.SET_METADATA], authors=[public_key.hex()], limit=1)
-        event = self.messenger.get_event(filters)
+        event = await self.relay_manager.get_event(filters)
         if event:
             return Metadata.from_event(event)
         return None
 
-    def update_metadata(self, name: Optional[str] = None, about: Optional[str] = None,
+    async def update_metadata(self, name: Optional[str] = None, about: Optional[str] = None,
                        nip05: Optional[str] = None, picture: Optional[str] = None,
                        banner: Optional[str] = None, lud16: Optional[str] = None,
                        lud06: Optional[str] = None, username: Optional[str] = None,
@@ -116,7 +116,7 @@ class NostrClient:
             display_name: Display name.
             website: Website URL.
         """
-        previous_metadata = self.get_metadata_for_pubkey(self.public_key)
+        previous_metadata = await self.get_metadata_for_pubkey(self.public_key)
         metadata = Metadata()
         if previous_metadata:
             metadata.set_metadata(previous_metadata.metadata_to_dict())
@@ -146,30 +146,41 @@ class NostrClient:
             print("No changes in metadata, skipping update.")
             return
 
-        self.messenger.send_event(metadata.to_event())
+        await self.relay_manager.send_event(metadata.to_event())
 
-    def send_direct_message(self, recipient_pubkey: str, message: str, event_ref: str = None):
+    async def send_direct_message(self, recipient_pubkey: str, message: str, event_ref: str = None):
         """Send an encrypted direct message to a recipient and wait for a response.
 
         Args:
             recipient_pubkey: The recipient's public key.
             message: The message content (string or dict, which will be JSON-encoded).
         """
-        self.messenger.send_message(message=message, recipient_pubkey=recipient_pubkey, event_ref=event_ref)
+        await self.relay_manager.send_message(message=message, recipient_pubkey=recipient_pubkey, event_ref=event_ref)
 
-    def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 30, event_ref: str = None) -> DecryptedMessage:
+    async def receive_direct_message(self, recipient_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage:
+        """Receive an encrypted direct message from a recipient.
+
+        Args:
+            recipient_pubkey: The recipient's public key.
+            timeout: Timeout in seconds for receiving a message.
+
+        Returns:
+            DecryptedMessage object containing the message content.
+        """
+        return await self.relay_manager.receive_message(recipient_pubkey, timestamp=timestamp, timeout=timeout)
+
+    async def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 30, event_ref: str = None) -> DecryptedMessage:
         """Send an encrypted direct message to a recipient and wait for a response.
 
         Args:
             recipient_pubkey: The recipient's public key.
             message: The message content (string or dict, which will be JSON-encoded).
         """
-        return self.messenger.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout, event_ref=event_ref)
+        return await self.relay_manager.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout, event_ref=event_ref)
 
-    def note_listener(self, callback: Callable[[Event], Any], pubkeys: List[str] = None, 
+    async def note_listener(self, callback: Callable[[Event], Any], pubkeys: List[str] = None, 
                      tags: List[str] = None, followers_only: bool = False, 
-                     following_only: bool = False, timeout: int = 0, 
-                     timestamp: int = None, close_after_first_message: bool = False):
+                     following_only: bool = False, timestamp: int = None):
         """Listen for public notes matching the given filters.
 
         Args:
@@ -178,9 +189,7 @@ class NostrClient:
             tags: List of tags to filter notes by.
             followers_only: If True, only show notes from users the key follows (not implemented).
             following_only: If True, only show notes from users following the key (not implemented).
-            timeout: Timeout for listening in seconds (0 for indefinite).
             timestamp: Filter messages since this timestamp (optional).
-            close_after_first_message: Close subscription after receiving the first message.
         """
 
         authors = None
@@ -191,11 +200,9 @@ class NostrClient:
         if tags and len(tags) > 0:
             filters.add_arbitrary_tag("t", tags)
 
-        thread = threading.Thread(target=self.messenger.event_listener, args=(filters, callback))
-        thread.start()
+        await self.relay_manager.event_listener(filters, callback)
 
-    def direct_message_listener(self, callback: Callable[[Event, str], Any], recipient_pubkey: str = None,
-                               timeout: int = 0, timestamp: int = None, close_after_first_message: bool = False):
+    async def direct_message_listener(self, callback: Callable[[Event, str], Any], recipient_pubkey: str = None, timestamp: int = None):
         """Listen for incoming encrypted direct messages.
 
         Args:
@@ -210,4 +217,4 @@ class NostrClient:
                                       since=timestamp or get_timestamp(), pubkey_refs=[self.public_key.hex()],
                                       limit=10)
         
-        self.messenger.direct_message_listener(filters, callback)
+        await self.relay_manager.direct_message_listener(filters, callback)

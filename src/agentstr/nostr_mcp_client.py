@@ -1,4 +1,4 @@
-import threading
+import asyncio
 import json
 import time
 from typing import Any, List, Callable
@@ -34,19 +34,19 @@ class NostrMCPClient:
         self.mcp_pubkey = get_public_key(mcp_pubkey).hex()
         self.tool_to_sats_map = {}
 
-    def list_tools(self) -> dict[str, Any] | None:
+    async def list_tools(self) -> dict[str, Any] | None:
         """Retrieve the list of available tools from the MCP server.
 
         Returns:
             Dictionary of tools with their metadata, or None if not found.
         """
-        metadata = self.client.get_metadata_for_pubkey(self.mcp_pubkey)
+        metadata = await self.client.get_metadata_for_pubkey(self.mcp_pubkey)
         tools = json.loads(metadata.about)
         for tool in tools['tools']:
             self.tool_to_sats_map[tool['name']] = tool['satoshis']
         return tools
 
-    def call_tool(self, name: str, arguments: dict[str, Any], timeout: int = 60) -> dict[str, Any] | None:
+    async def call_tool(self, name: str, arguments: dict[str, Any], timeout: int = 60) -> dict[str, Any] | None:
         """Call a tool on the MCP server with provided arguments.
 
         Args:
@@ -57,7 +57,7 @@ class NostrMCPClient:
         Returns:
             Response dictionary from the server, or None if no response.
         """
-        response = self.client.send_direct_message_and_receive_response(self.mcp_pubkey, json.dumps({
+        response = await self.client.send_direct_message_and_receive_response(self.mcp_pubkey, json.dumps({
             'action': 'call_tool', 'tool_name': name, 'arguments': arguments
         }), timeout=timeout)
 
@@ -72,8 +72,8 @@ class NostrMCPClient:
         if isinstance(message, str) and message.startswith('lnbc'):
             invoice = message.strip()
             print(f'Paying invoice: {invoice}')
-            self.client.nwc_client.try_pay_invoice(invoice=invoice, amt=self.tool_to_sats_map[name])
-            response = self.client.messenger.receive_message(self.mcp_pubkey, timestamp=timestamp, timeout=timeout) 
+            await asyncio.to_thread(self.client.nwc_client.try_pay_invoice, invoice=invoice, amt=self.tool_to_sats_map[name])
+            response = await self.client.receive_direct_message(self.mcp_pubkey, timestamp=timestamp, timeout=timeout) 
 
         if response:
             print(f'MCP Client received response.message: {response.message}')

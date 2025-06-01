@@ -1,24 +1,35 @@
+import os
 from agentstr import NostrMCPServer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Define relays and private key
-relays   = ['wss://some.relay.io']
-private_key = 'nsec...'
+relays   = os.getenv('NOSTR_RELAYS').split(',')
+private_key = os.getenv('EXAMPLE_MCP_SERVER_NSEC')
+print(relays)
 
 # Define tools
-def add(a: int, b: int) -> int:
+async def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
 
-def multiply(a: int, b: int) -> int:
+async def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
     return a * b
 
-# Define the server
-server = NostrMCPServer("Math MCP Server", relays=relays, private_key=private_key)
+async def run():
+    # Define the server
+    server = NostrMCPServer("Math MCP Server", relays=relays, private_key=private_key)
 
-# Add tools
-server.add_tool(add)
-server.add_tool(multiply, name="multiply", description="Multiply two numbers")
+    # Add tools
+    server.add_tool(add)
+    server.add_tool(multiply, name="multiply", description="Multiply two numbers")
 
-# Start the server
-server.start()
+    # Start the server
+    await server.start()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(run())
+

@@ -1,6 +1,7 @@
 import threading
 import json
 import time
+import asyncio
 from typing import Callable, Any, List
 from pynostr.event import Event
 from agentstr.nostr_client import NostrClient
@@ -51,7 +52,7 @@ class NostrMCPServer:
             self.tool_to_sats_map[name or fn.__name__] = satoshis
         self.tool_manager.add_tool(fn=fn, name=name, description=description)
 
-    def list_tools(self) -> dict[str, Any]:
+    async def list_tools(self) -> dict[str, Any]:
         """List all registered tools and their metadata.
 
         Returns:
@@ -67,7 +68,7 @@ class NostrMCPServer:
             } for tool in self.tool_manager.list_tools()]
         }
 
-    def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         """Execute a registered tool by name with provided arguments.
 
         Args:
@@ -83,15 +84,16 @@ class NostrMCPServer:
         tool = self.tool_manager.get_tool(name)
         if not tool:
             raise ToolError(f"Unknown tool: {name}")
-        return tool.fn(**arguments)
+        return await tool.fn(**arguments)
 
-    def _direct_message_callback(self, event: Event, message: str):
+    async def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages to process tool calls or list requests.
 
         Args:
             event: The Nostr event containing the message.
             message: The message content.
         """
+        tasks = []
         message = message.strip()
         print(f"Request: {message}")
         try:
@@ -106,25 +108,28 @@ class NostrMCPServer:
                     invoice = self.client.nwc_client.make_invoice(amt=satoshis, desc="Payment for tool call")
                     response = invoice
 
-                    def on_success():
+                    async def on_success():
                         print(f"Payment succeeded for {tool_name}")
-                        result = self.call_tool(tool_name, arguments)
+                        result = await self.call_tool(tool_name, arguments)
                         response = {"content": [{"type": "text", "text": str(result)}]}
                         print(f'On success response: {response}')
-                        self.client.send_direct_message(event.pubkey, json.dumps(response))
+                        await self.client.send_direct_message(event.pubkey, json.dumps(response))
 
-                    def on_failure():
+                    async def on_failure():
                         response = {"error": f"Payment failed for {tool_name}"}
                         print(f"On failure response: {response}")
-                        self.client.send_direct_message(event.pubkey, json.dumps(response))
+                        await self.client.send_direct_message(event.pubkey, json.dumps(response))
 
-                    thr = threading.Thread(
-                        target=self.client.nwc_client.on_payment_success,
-                        kwargs={'invoice': invoice, 'callback': on_success, 'timeout': 120, 'unsuccess_callback': on_failure}
-                    )
-                    thr.start()
+                    # Run in background
+                    asyncio.create_task(asyncio.to_thread(      
+                        self.client.nwc_client.on_payment_success,
+                        invoice=invoice,
+                        callback=on_success,
+                        unsuccess_callback=on_failure,
+                        timeout=120,
+                    ))
                 else:
-                    result = self.call_tool(tool_name, arguments)
+                    result = await self.call_tool(tool_name, arguments)
                     response = {"content": [{"type": "text", "text": str(result)}]}
             else:
                 response = {"error": f"Invalid action: {request['action']}"}
@@ -133,15 +138,16 @@ class NostrMCPServer:
         if not isinstance(response, str):
             response = json.dumps(response)
         print(f'MCP Server response: {response}')
-        self.client.send_direct_message(event.pubkey, response)
+        await self.client.send_direct_message(event.pubkey, response)
 
-    def start(self):
+
+    async def start(self):
         """Start the MCP server, updating metadata and listening for direct messages."""
         print(f'Updating metadata for {self.client.public_key.bech32()}')
-        self.client.update_metadata(
+        await self.client.update_metadata(
             name='mcp_server',
             display_name=self.display_name,
-            about=json.dumps(self.list_tools())
+            about=json.dumps(await self.list_tools())
         )
         print(f'Starting message listener for {self.client.public_key.bech32()}')
-        self.client.direct_message_listener(callback=self._direct_message_callback)
+        await self.client.direct_message_listener(callback=self._direct_message_callback)
