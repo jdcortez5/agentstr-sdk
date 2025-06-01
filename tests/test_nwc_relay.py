@@ -12,9 +12,8 @@ async def test_make_invoice():
     invoice = await nwc_relay.make_invoice(amount=5, description='test')
     print('Making invoice:')
     print(invoice)
-    assert invoice['result']['invoice'].startswith('lnbc')
-    assert invoice['result']['amount'] == 5000
-    return invoice['result']['invoice']
+    assert invoice.startswith('lnbc')
+    return invoice
 
 async def test_check_invoice(invoice: str):
     invoice_info = await nwc_relay.check_invoice(invoice=invoice)

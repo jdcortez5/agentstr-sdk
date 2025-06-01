@@ -137,7 +137,7 @@ class NWCRelay(object):
         ersp = response.content
         drsp = decrypt(self.nwc_info["app_privkey"], self.nwc_info["wallet_pubkey"], ersp)
         dobj = json.loads(drsp)
-        return dobj
+        return dobj['result']['invoice']
 
     async def check_invoice(self, invoice=None, payment_hash=None):
         if invoice is None and payment_hash is None:
