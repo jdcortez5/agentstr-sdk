@@ -30,30 +30,38 @@ class EventRelay(object):
         limit = filters.limit if filters.limit else limit
         sid = uuid.uuid4().hex
         subscription = ["REQ", sid, filters.to_dict()]
-
+        events = []
+        t0 = time.time()
+        time_remaining = timeout
         async with connect(self.relay) as ws:
             #print(f'Sending subscription: {json.dumps(subscription)}')
             await ws.send(json.dumps(subscription))
             t0 = time.time()
-            events = []
             found = 0
             await asyncio.sleep(0)
-            while time.time() < t0 + timeout and found < limit:      
-                response = await ws.recv()
-                response = json.loads(response)
-                #print(f"Received full message in get_events: {response}")
-                if (len(response) > 2):
-                    found += 1
-                    #print(f"Received message {found} in get_event: {response[2]}")
-                    events.append(Event.from_dict(response[2]))
-                else:
-                    if response[0] == 'EOSE':
-                        #print('Received EOSE in get_events')
-                        if close_on_eose:
-                            #print('Closing connection on EOSE.')
-                            break
-                    #print(f"Invalid event: {response}")
-                await asyncio.sleep(0)
+            try:
+                while time.time() < t0 + timeout and found < limit: 
+                    response = await asyncio.wait_for(ws.recv(), timeout=time_remaining)     
+                    response = json.loads(response)
+                    #print(f"Received full message in get_events: {response}")
+                    if (len(response) > 2):
+                        found += 1
+                        #print(f"Received message {found} in get_event: {response[2]}")
+                        events.append(Event.from_dict(response[2]))
+                    else:
+                        if response[0] == 'EOSE':
+                            #print('Received EOSE in get_events')
+                            if close_on_eose:
+                                #print('Closing connection on EOSE.')
+                                break
+                        #print(f"Invalid event: {response}")
+                    await asyncio.sleep(0)
+                    time_remaining = t0 + timeout - time.time()
+                    if time_remaining <= 0:
+                        raise asyncio.TimeoutError()
+            except asyncio.TimeoutError:
+                print('Timeout in get_events')
+                pass
         return events
 
     async def get_event(self, filters: Filters, timeout: int = 30, close_on_eose: bool = True) -> Event:
