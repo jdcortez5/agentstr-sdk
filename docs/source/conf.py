@@ -10,7 +10,6 @@ import sys
 project = 'Agentstr SDK'
 copyright = '2025, HallmarkBitcoin'
 author = 'HallmarkBitcoin'
-release = '0.2.3'
 
 # -- General configuration ---------------------------------------------------
 import os

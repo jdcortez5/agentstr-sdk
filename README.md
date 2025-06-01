@@ -1,114 +1,110 @@
 # Agentstr SDK
 
 [![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://agentstr.com/docs)
-[![Usage Examples](https://img.shields.io/badge/examples-online-green.svg)](https://agentstr.com/usage)
+[![PyPI](https://img.shields.io/pypi/v/agentstr-sdk)](https://pypi.org/project/agentstr-sdk/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Examples](#examples)
+- [Configuration](#configuration)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
-Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol. It integrates MCP (Model Context Protocol) and A2A (Agent-to-Agent) functionality with Nostr and the Lightning Network.
+Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol. It provides seamless integration with various AI agent frameworks and enables decentralized agent-to-agent communication using Nostr relays.
 
-## Core Features
+## Features
 
-### Nostr Integration
-- 📡 **NostrClient**: Core client for Nostr relay interactions
-  - Event handling and management
+### Core Components
+- **Nostr Integration**: Full support for Nostr protocol operations
+  - Event publishing and subscription
   - Direct messaging
-  - Metadata operations
+  - Metadata handling
+- **Lightning Integration**: Full support for Nostr Wallet Connect (NWC)
+  - Human-to-agent payments
+  - Agent-to-agent payments
+  - Agent-to-tool payments
 
-### MCP Functionality
-- 🛠️ **NostrMCPServer**: Tool server with payment support
-  - Expose functions as tools
-  - Optional satoshi payments via NWC
-  - Tool discovery and registration
+### Agent Frameworks
+- **DSPy**
+- **LangGraph**
+- **Agno**
+- **Bring Your Own Agent**
 
-- 🔍 **NostrMCPClient**: Tool client with payment handling
-  - Discover and call tools
-  - Automatic payment processing
+### MCP (Model Context Protocol) Support
+- Nostr MCP Server for serving tools over Nostr
+- Nostr MCP Client for discovering and calling remote tools
 
-### AI & RAG
-- 🤖 **NostrAgentServer**: Agent integration server
-  - External agent communication
-  - Direct message processing
-  - Payment support for agent services
+### A2A (Agent-to-Agent) Support
+- Direct message handling between agents
+- Discover agents using Nostr metadata
 
-- 📚 **NostrRAG**: Retrieval-Augmented Generation
-  - Query Nostr events
-  - Context-aware responses
-  - Event filtering and processing
+### RAG (Retrieval-Augmented Generation)
+- Query and process Nostr events
+- Context-aware response generation
+- Event filtering
 
-### Payment Integration
-- 💰 **NWCClient**: Nostr Wallet Connect
-  - Payment processing and management
-  - Invoice creation and handling
-  - Payment verification
+## Installation
 
-## Getting Started
+### Prerequisites
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) recommended (or `pip`)
 
-### Check out our [Usage Guide](https://agentstr.com/usage) for detailed examples and tutorials.
-
-## Quick Start Example
-To demonstrate how to use the Agentstr SDK, here's an example of setting up an MCP server with mathematical tools and a client to call them:
-
-### Installation
-
+### Install from PyPI
 ```bash
-pip install agentstr-sdk
+uv add agentstr-sdk[all]
 ```
 
-### MCP Server
-```python
-from agentstr import NostrMCPServer
-
-# Define relays and private key
-relays   = ['wss://some.relay.io']
-private_key = 'nsec...'
-
-# Define tools
-def add(a: int, b: int) -> int:
-    """Add two numbers."""
-    return a + b
-
-def multiply(a: int, b: int) -> int:
-    """Multiply two numbers."""
-    return a * b
-
-# Define the server
-server = NostrMCPServer("Math MCP Server", relays=relays, private_key=private_key)
-
-# Add tools
-server.add_tool(add)
-server.add_tool(multiply, name="multiply", description="Multiply two numbers")
-
-# Start the server
-server.start()
+### Install from source
+```bash
+git clone https://github.com/agentstr/agentstr-sdk.git
+cd agentstr-sdk
+uv sync --all-extras
 ```
 
-### MCP Client
-```python
-from agentstr import NostrMCPClient
+## Quick Start
 
-# Define relays and private key
-relays = ['wss://some.relay.io']
-private_key = 'nsec...'
+### Environment Setup
+Copy the `examples/.env.sample` file to `.env` and fill in the environment variables.
 
-# Define MCP server public key
-server_public_key = 'npub...'
+## Examples
 
-# Initialize the client
-mcp_client = NostrMCPClient(mcp_pubkey=server_public_key, relays=relays, private_key=private_key)
+The `examples/` directory contains various implementation examples:
 
-# List available tools
-tools = mcp_client.list_tools()
-print(f'Found tools: {json.dumps(tools, indent=4)}')
+- `dspy_agent.py`: DSPy-powered agent with tool usage
+- `langgraph_agent.py`: Agent workflow with LangGraph
+- `agno_agent.py`: Simple agent implementation
+- `dm_agents.py`: Direct message handling between agents
+- `mcp_server.py`: MCP server implementation (lightning-enabled)
+- `mcp_client.py`: MCP client example (lightning-enabled)
+- `tool_discovery.py`: Tool discovery and usage
+- `rag.py`: Retrieval-augmented generation example
 
-# Call a tool
-result = mcp_client.call_tool("multiply", {"a": 69, "b": 420})
-print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
+To run an example:
+```bash
+uv run examples/dspy_agent.py
 ```
 
-For more examples, see the [examples](examples) directory.
+### Security Notes
+- Never commit your private keys or sensitive information to version control
+- Use environment variables or a secure secret management system
+- The `.env.sample` file shows the required configuration structure
 
-### Notes
-+ **Environment Variables**: Do not hardcode Nostr private keys or NWC connection strings in your code. Use environment variables or some other secure method to store these values.
-+ **Payment Handling**: Tools or agent interactions requiring satoshis use NWC for invoice creation and payment verification.
-+ **Threading**: The SDK uses threading for asynchronous operations, such as listening for messages or monitoring payments.
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
