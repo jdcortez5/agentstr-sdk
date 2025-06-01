@@ -93,8 +93,7 @@ class RelayManager(object):
 
     async def send_message(self, message: str | dict, recipient_pubkey: str, event_ref: str = None) -> Event:
         """Send an encrypted message to a recipient through all connected relays."""
-        logger.info(f'Sending message to {recipient_pubkey[:10]}...')
-        logger.debug(f'Message content: {message}')
+        logger.info(f'Sending message to {recipient_pubkey[:10]}: {message}')
         
         try:
             event = self.encrypt_message(message, recipient_pubkey, event_ref)
@@ -107,7 +106,7 @@ class RelayManager(object):
                 
             logger.debug(f'Dispatching message to {len(tasks)} relays')
             await asyncio.gather(*tasks)
-            logger.info(f'Successfully sent message to {recipient_pubkey[:10]} with event id: {event.id}')
+            logger.info(f'Successfully sent message to {recipient_pubkey[:10]} with event id: {event.id[:10]}')
             
             return event
             
@@ -135,7 +134,7 @@ class RelayManager(object):
                 try:
                     result = await task
                     if result:
-                        logger.info(f'Received message from {author_pubkey[:10]} with id {result.event.id}: {result.message}')
+                        logger.info(f'Received message from {author_pubkey[:10]} with id {result.event.id[:10]}: {result.message}')
                         return result
                     
                     # Check timeout
