@@ -18,4 +18,7 @@ Modules
    agentstr.nostr_mcp_client
    agentstr.nostr_mcp_server
    agentstr.nostr_rag
-   agentstr.nwc_client
+   agentstr.nwc_relay
+   agentstr.relay
+   agentstr.relay_manager
+   

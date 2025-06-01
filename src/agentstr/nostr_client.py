@@ -184,11 +184,11 @@ class NostrClient:
             logger.error(f'Failed to send direct message: {str(e)}', exc_info=True)
             raise
 
-    async def receive_direct_message(self, recipient_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
+    async def receive_direct_message(self, recipient_pubkey: str, timestamp: int = None, timeout: int = 60) -> DecryptedMessage | None:
         """Wait for and return the next direct message from a recipient."""
         return await self.relay_manager.receive_message(recipient_pubkey, timestamp=timestamp, timeout=timeout)
 
-    async def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 30, event_ref: str = None) -> DecryptedMessage:
+    async def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 60, event_ref: str = None) -> DecryptedMessage:
         """Send an encrypted direct message to a recipient and wait for a response.
 
         Args:

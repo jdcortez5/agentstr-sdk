@@ -1,5 +1,7 @@
 import json
 from typing import List, Dict, Any
+
+from pynostr.event import Event
 from agentstr.nostr_client import NostrClient
 from agentstr.logger import get_logger
 try:
@@ -88,18 +90,19 @@ Previous hashtags: {history}
                     hashtags.append(word)
             return hashtags[:5]  # Return at most 5 hashtags
 
-    def _process_event(self, event: Dict[str, Any]) -> Document:
+    def _process_event(self, event: Event) -> Document:
         """Process a Nostr event into a LangChain Document.
 
         Args:
-            event: A dictionary containing the Nostr event data.
+            event: A Nostr event.
 
         Returns:
             Document: A LangChain Document with the event's content and ID.
         """
-        content = event.get('content', '')
-
-        return Document(page_content=content, id=event.get('id'), metadata=event)
+        content = event.content
+        metadata = event.to_dict()
+        metadata.pop('content')
+        return Document(page_content=content, id=event.id, metadata=metadata)
 
     async def build_knowledge_base(self, question: str, limit: int = 10) -> List[dict]:
         """Build a knowledge base from Nostr events relevant to the question.

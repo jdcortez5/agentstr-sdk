@@ -11,7 +11,8 @@ from pynostr.utils import get_public_key, get_timestamp
 from pynostr.event import Event, EventKind
 from pynostr.filters import Filters
 from pynostr.key import PrivateKey, PublicKey
-from websockets.asyncio.client import connect 
+from websockets.asyncio.client import connect
+from websockets.exceptions import ConnectionClosedError
 from agentstr.logger import get_logger
 
 logger = get_logger(__name__)
@@ -143,41 +144,58 @@ class EventRelay(object):
         sid = uuid.uuid4().hex
         subscription = ["REQ", sid, filters.to_dict()]
         logger.debug(f'Sending note subscription: {json.dumps(subscription)}')
-        async with connect(self.relay) as ws:
-            await ws.send(json.dumps(subscription))
-            while True:      
-                response = await ws.recv()
-                response = json.loads(response)
-                if (len(response) > 2):
-                    event = Event.from_dict(response[2])
-                    logger.debug(f'Checking lock with event id: {event.id}')
-                    async with lock:
-                        if event.id in event_cache:
-                            continue
-                        event_cache[event.id] = True
-                    await callback(event)
-                await asyncio.sleep(0)
-
+        while True:
+            async with connect(self.relay) as ws:
+                try:
+                    await ws.send(json.dumps(subscription))
+                    while True:      
+                        response = await ws.recv()
+                        response = json.loads(response)
+                        if (len(response) > 2):
+                            event = Event.from_dict(response[2])
+                            logger.debug(f'Checking lock with event id: {event.id}')
+                            async with lock:
+                                if event.id in event_cache:
+                                    continue
+                                event_cache[event.id] = True
+                            logger.info(f'Event listener received event {event.id[:10]}: {event.content}')
+                            try:
+                                await callback(event)
+                            except Exception as e:
+                                logger.error(f'Error in event_listener callback: {e}')
+                        await asyncio.sleep(0)
+                except ConnectionClosedError:
+                    logger.warning('Connection closed in event_listener. Reconnecting now...')
+                    await asyncio.sleep(0)
+    
     async def direct_message_listener(self, filters: Filters, callback: Callable[[Event, str], None], event_cache: ExpiringDict, lock: asyncio.Lock):
         """Listen for direct messages and call the callback with decrypted content."""
         sid = uuid.uuid4().hex
         subscription = ["REQ", sid, filters.to_dict()]
         logger.debug(f'Sending DM subscription: {json.dumps(subscription)}')
-        async with connect(self.relay) as ws:
-            await ws.send(json.dumps(subscription))
-            while True:      
-                response = await ws.recv()
-                response = json.loads(response)
-                if (len(response) > 2):
-                    logger.debug(f"Received message in direct_message_listener: {response[2]}")
-                    event = Event.from_dict(response[2])
-                    logger.debug(f'Checking lock with event id: {event.id}')
-                    async with lock:
-                        if event.id in event_cache:
-                            continue
-                        event_cache[event.id] = True
-                    dm = self.decrypt_message(event)
-                    if dm:
-                        logger.debug(f"New dm received: {event.date_time()} {dm.message}")
-                        await callback(dm.event, dm.message)
-                await asyncio.sleep(0)
+        while True:
+            async with connect(self.relay) as ws:
+                try:
+                    await ws.send(json.dumps(subscription))
+                    while True:      
+                        response = await ws.recv()
+                        response = json.loads(response)
+                        if (len(response) > 2):
+                            logger.debug(f"Received message in direct_message_listener: {response[2]}")
+                            event = Event.from_dict(response[2])
+                            logger.debug(f'Checking lock with event id: {event.id}')
+                            async with lock:
+                                if event.id in event_cache:
+                                    continue
+                                event_cache[event.id] = True
+                            dm = self.decrypt_message(event)
+                            if dm:
+                                logger.info(f"Listener received DM from {event.pubkey[:10]}: {dm.message}")
+                                try:
+                                    await callback(dm.event, dm.message)
+                                except Exception as e:
+                                    logger.error(f'Error in direct_message_listener callback: {e}')
+                        await asyncio.sleep(0)
+                except ConnectionClosedError:
+                    logger.warning('Connection closed in direct_message_listener. Reconnecting now...')
+                    await asyncio.sleep(0)

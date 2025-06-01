@@ -83,7 +83,7 @@ Could you please proceed with the next steps or provide an update on this matter
 Only use the following tools: [{skills_used}]
 '''
 
-        print(f'Handling paid invoice')
+        logger.info(f'Handling paid invoice')
 
         async def on_success():
             logger.info(f"Payment succeeded for {self.agent_info.name}")
@@ -122,7 +122,7 @@ Only use the following tools: [{skills_used}]
         message = message.strip()
         invoice = None
         router_response = None
-        logger.debug(f"Request: {message}")
+        logger.debug(f"Agent request: {message}")
         try:
             response = None
             cost_sats = None
@@ -148,7 +148,7 @@ Only use the following tools: [{skills_used}]
         except Exception as e:
             response = f'Error in direct message callback: {e}'
             
-        logger.debug(f'Response: {response}')
+        logger.debug(f'Agent response: {response}')
         tasks = []
         tasks.append(self.client.send_direct_message(event.pubkey, response))
         if invoice:
@@ -167,7 +167,7 @@ Only use the following tools: [{skills_used}]
             logger.info(f"Received note from {event.pubkey}: {content}")
             
             router_response = await agent_router_v2(content, self.agent_info, self.router_llm, thread_id=event.pubkey)
-            logger.debug(f"Router response: {router_response.model_dump()}")
+            logger.info(f"Router response: {router_response.model_dump()}")
 
             if router_response.can_handle:
                 # Formulate and send direct message to the user
@@ -203,13 +203,11 @@ Only use the following tools: [{skills_used}]
                     callback=self._note_callback,
                     pubkeys=self.note_filters.nostr_pubkeys,
                     tags=self.note_filters.nostr_tags,
-                    followers_only=self.note_filters.followers_only,
                     following_only=self.note_filters.following_only
                 )
             )
         
         # Start direct message listener
         logger.info(f'Starting message listener for {self.client.public_key.bech32()}')
-        
-        await self.client.direct_message_listener(callback=self._direct_message_callback)
-        
+        tasks.append(self.client.direct_message_listener(callback=self._direct_message_callback))
+        await asyncio.gather(*tasks) 

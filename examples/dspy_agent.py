@@ -1,63 +1,52 @@
+from dotenv import load_dotenv
+from pynostr.key import PrivateKey
+
+load_dotenv()
+
+import os
 import dspy
-from agentstr import NostrAgentServer, NoteFilters
-from agentstr.a2a import AgentCard, Skill, ChatInput
+from agentstr import NostrAgentServer
+from agentstr.a2a import ChatInput
 
-# Define relays and private key
-relays = ['wss://some.relay.io']
-private_key = 'nsec...'
+# Get the environment variables
+relays = os.getenv('NOSTR_RELAYS').split(',')
+private_key = os.getenv('EXAMPLE_DSPY_AGENT_NSEC')
 
-# Define Nostr Wallet Connect string to support lightning payments
-nwc_str = 'nostr+walletconnect://...'
+llm_base_url = os.getenv('LLM_BASE_URL').rstrip('/v1')
+llm_api_key = os.getenv('LLM_API_KEY')
+llm_model_name = os.getenv('LLM_MODEL_NAME')
 
-# Define A2A agent info
-agent_info = AgentCard(
-    name='Travel Agent',
-    description=('This agent can help you book and manage flights.'),
-    skills=[Skill(name='book_flight', description='Book a flight on behalf of a user.', satoshis=25),
-            Skill(name='show_itinerary', description='Show the itinerary for the user.', satoshis=0),
-            Skill(name='pick_flight', description='Pick the best flight that matches users\' request.', satoshis=0),
-            Skill(name='cancel_itinerary', description='Cancel an itinerary on behalf of the user.', satoshis=0),
-            ],
-    satoshis=0,
-    nostr_pubkey='npub...',
-)
 
-# Define note filters to listen on
-note_filters = NoteFilters(
-    tags=['travel_agent_ai_request'],
-)
+# Define tools
+async def divide_by(dividend: float, divisor: float) -> float:
+    return dividend / divisor
 
-# Define DSPy agent (see https://dspy.ai/tutorials/customer_service_agent/ for more info)
-agent = dspy.ReAct(
-    DSPyAirlineCustomerSerice,
-    tools = [
-        fetch_flight_info,
-        show_itinerary,
-        pick_flight,
-        book_flight,
-        cancel_itinerary
-    ]
-)
 
-# Configure LLM
-llm_api_key = 'cashuA1DkpMb...'
-llm_base_url = 'https://api.routstr.com'
-llm_model_name = 'gpt-4o'
+async def search_wikipedia(query: str) -> list[str]:
+    results = await dspy.ColBERTv2(url='http://20.102.90.50:2017/wiki17_abstracts')(query, k=3)
+    return [x['text'] for x in results]
+
+
+react = dspy.ReAct("question -> answer: float", tools=[divide_by, search_wikipedia])
+
 
 # Configure DSPy
 dspy.configure(lm=dspy.LM(model=llm_model_name, api_base=llm_base_url, api_key=llm_api_key, model_type='chat'))
 
+
 # Define agent callable
-def agent_callable(chat_input: ChatInput) -> str:
-    return agent(user_request=chat_input.messages[-1]).process_result
+async def agent_callable(chat_input: ChatInput) -> str:
+    return (await react.acall(question=chat_input.messages[-1])).answer
 
-# Initialize the server
-server = NostrAgentServer(relays=relays, 
-                          private_key=private_key, 
-                          nwc_str=nwc_str,
-                          agent_info=agent_info,
-                          agent_callable=agent_callable,
-                          note_filters=note_filters)
 
-# Start the server
-server.start()
+# Create Nostr Agent Server
+async def server():
+    server = NostrAgentServer(relays=relays,
+                              private_key=private_key,
+                              agent_callable=agent_callable)
+    await server.start()
+
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(server())
