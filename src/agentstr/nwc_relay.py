@@ -134,6 +134,8 @@ class NWCRelay(object):
         event = get_signed_event(obj, self.nwc_info["app_privkey"])
         await self.event_relay.send_event(event)
         response = await self.get_response(event.id)
+        if response is None:
+            return None
         ersp = response.content
         drsp = decrypt(self.nwc_info["app_privkey"], self.nwc_info["wallet_pubkey"], ersp)
         dobj = json.loads(drsp)
@@ -165,6 +167,8 @@ class NWCRelay(object):
         eid = event.id
         await self.event_relay.send_event(event)
         response = await self.get_response(eid)
+        if response is None:
+            return None
         ersp = response.content
         drsp = decrypt(self.nwc_info["app_privkey"], self.nwc_info["wallet_pubkey"], ersp)
         dobj = json.loads(drsp)
@@ -219,6 +223,8 @@ class NWCRelay(object):
         event = get_signed_event(obj, self.nwc_info["app_privkey"])
         await self.event_relay.send_event(event)
         response = await self.get_response(event.id)
+        if response is None:
+            return None
         ersp = response.content
         drsp = decrypt(self.nwc_info["app_privkey"], self.nwc_info["wallet_pubkey"], ersp)
         dobj = json.loads(drsp)
@@ -241,6 +247,8 @@ class NWCRelay(object):
         event = get_signed_event(obj, self.nwc_info["app_privkey"])
         await self.event_relay.send_event(event)
         response = await self.get_response(event.id)
+        if response is None:
+            return None
         ersp = response.content
         drsp = decrypt(self.nwc_info["app_privkey"], self.nwc_info["wallet_pubkey"], ersp)
         dobj = json.loads(drsp)

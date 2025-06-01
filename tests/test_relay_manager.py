@@ -35,6 +35,12 @@ async def test_get_following():
     print('Following')
     print(following)
 
+
+async def test_suite():
+    await test_relay_manager()
+    await test_get_following()
+
+
 if __name__ == '__main__':
-    asyncio.run(test_get_following())
+    asyncio.run(test_suite())
     
