@@ -84,32 +84,33 @@ class EventRelay(object):
             )
         return None
 
-    def receive_message(self, author_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
-        authors = [author_pubkey]
-        filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
-                            pubkey_refs=[self.public_key.hex()], since=timestamp or get_timestamp(), limit=1)
-        event = self.get_event(filters, timeout, close_on_eose=False)
-        return self.decrypt_message(event)
-
-    def send_receive_message(self, message: str | dict, recipient_pubkey: str, timeout: int = 30, expect_response: bool = True) -> DecryptedMessage | None:
+    def send_message(self, message: str | dict, recipient_pubkey: str, event_ref: str = None) -> Event:
         recipient = get_public_key(recipient_pubkey)
         dm = EncryptedDirectMessage()
+        
+        if event_ref:
+            dm.reference_event_id = event_ref
 
         if isinstance(message, dict):
             message = json.dumps(message)
 
         dm.encrypt(self.private_key.hex(), cleartext_content=message, recipient_pubkey=recipient.hex())
         dm_event = dm.to_event()
-
-        timestamp = dm_event.created_at
-        authors = [recipient.hex()]
-        filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
-                            pubkey_refs=[self.public_key.hex()], since=timestamp, limit=1)
         self.send_event(dm_event)
-        if expect_response:
-            response = self.get_event(filters, timeout, close_on_eose=False)
-            return self.decrypt_message(response)
+
+    def receive_message(self, author_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
+        authors = [author_pubkey]
+        filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],
+                            pubkey_refs=[self.public_key.hex()], since=timestamp or get_timestamp(), limit=1)
+        event = self.get_event(filters, timeout, close_on_eose=False)
+        if event:
+            return self.decrypt_message(event)
         return None
+
+    def send_receive_message(self, message: str | dict, recipient_pubkey: str, timeout: int = 3, event_ref: str = None) -> DecryptedMessage | None:
+        dm_event = self.send_message(message, recipient_pubkey, event_ref)
+        timestamp = dm_event.created_at
+        return self.receive_message(recipient_pubkey, timestamp, timeout)       
 
     def event_listener(self, filters: Filters, callback: Callable[[Event], None], timeout: int = 0):
         sid = uuid.uuid4().hex

@@ -148,15 +148,23 @@ class NostrClient:
 
         self.messenger.send_event(metadata.to_event())
 
-    def send_direct_message_to_pubkey(self, recipient_pubkey: str, message: str, timeout: int = 30, expect_response: bool = True) -> DecryptedMessage:
-        """Send an encrypted direct message to a recipient.
+    def send_direct_message(self, recipient_pubkey: str, message: str, event_ref: str = None):
+        """Send an encrypted direct message to a recipient and wait for a response.
 
         Args:
             recipient_pubkey: The recipient's public key.
             message: The message content (string or dict, which will be JSON-encoded).
         """
-        return self.messenger.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout, expect_response=expect_response)
+        self.messenger.send_message(message=message, recipient_pubkey=recipient_pubkey, event_ref=event_ref)
 
+    def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 30, event_ref: str = None) -> DecryptedMessage:
+        """Send an encrypted direct message to a recipient and wait for a response.
+
+        Args:
+            recipient_pubkey: The recipient's public key.
+            message: The message content (string or dict, which will be JSON-encoded).
+        """
+        return self.messenger.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout, event_ref=event_ref)
 
     def note_listener(self, callback: Callable[[Event], Any], pubkeys: List[str] = None, 
                      tags: List[str] = None, followers_only: bool = False, 

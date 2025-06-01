@@ -57,7 +57,7 @@ class NostrMCPClient:
         Returns:
             Response dictionary from the server, or None if no response.
         """
-        response = self.client.send_direct_message_to_pubkey(self.mcp_pubkey, json.dumps({
+        response = self.client.send_direct_message_and_receive_response(self.mcp_pubkey, json.dumps({
             'action': 'call_tool', 'tool_name': name, 'arguments': arguments
         }), timeout=timeout)
 
@@ -67,7 +67,6 @@ class NostrMCPClient:
 
         message = response.message
         timestamp = int(time.time())
-        time.sleep(1)
 
         print(f'MCP Client received message: {message}')
         if isinstance(message, str) and message.startswith('lnbc'):
