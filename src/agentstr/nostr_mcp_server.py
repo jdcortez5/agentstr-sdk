@@ -5,20 +5,16 @@ from pynostr.event import Event
 from agentstr.nostr_client import NostrClient
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.tools.tool_manager import ToolManager
+from agentstr.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class NostrMCPServer:
-    """A Model Context Protocol (MCP) server running on the Nostr protocol.
-
-    This server registers tools that can be called by clients via direct messages.
-    It supports optional payment requirements in satoshis for tool usage, processed
-    through Nostr Wallet Connect (NWC).
-
-    Attributes:
-        client (NostrClient): Nostr client for communication.
-        display_name (str): Display name of the server.
-        tool_to_sats_map (dict): Mapping of tool names to required satoshis.
-        tool_manager (ToolManager): Manager for registered tools.
+    """Model Context Protocol (MCP) server running on the Nostr protocol.
+    
+    Registers and manages tools that can be called by clients via direct messages,
+    with optional payment requirements handled through NWC.
     """
     def __init__(self, display_name: str, nostr_client: NostrClient = None,
                  relays: List[str] = None, private_key: str = None, nwc_str: str = None):
@@ -92,12 +88,12 @@ class NostrMCPServer:
             message: The message content.
         """
         message = message.strip()
-        print(f"Request: {message}")
+        logger.debug(f"Request: {message}")
         tasks = []
         try:
             request = json.loads(message)
             if request['action'] == 'list_tools':
-                response = self.list_tools()
+                response = await self.list_tools()
             elif request['action'] == 'call_tool':
                 tool_name = request['tool_name']
                 arguments = request['arguments']
@@ -107,15 +103,15 @@ class NostrMCPServer:
                     response = invoice
 
                     async def on_success():
-                        print(f"Payment succeeded for {tool_name}")
+                        logger.info(f"Payment succeeded for {tool_name}")
                         result = await self.call_tool(tool_name, arguments)
                         response = {"content": [{"type": "text", "text": str(result)}]}
-                        print(f'On success response: {response}')
+                        logger.debug(f'On success response: {response}')
                         await self.client.send_direct_message(event.pubkey, json.dumps(response))
 
                     async def on_failure():
                         response = {"error": f"Payment failed for {tool_name}"}
-                        print(f"On failure response: {response}")
+                        logger.error(f"On failure response: {response}")
                         await self.client.send_direct_message(event.pubkey, json.dumps(response))
 
                     # Run in background
@@ -136,17 +132,17 @@ class NostrMCPServer:
             response = {"content": [{"type": "text", "text": str(e)}]}
         if not isinstance(response, str):
             response = json.dumps(response)
-        print(f'MCP Server response: {response}')
+        logger.debug(f'MCP Server response: {response}')
         tasks.append(self.client.send_direct_message(event.pubkey, response))
         await asyncio.gather(*tasks)
 
     async def start(self):
         """Start the MCP server, updating metadata and listening for direct messages."""
-        print(f'Updating metadata for {self.client.public_key.bech32()}')
+        logger.info(f'Updating metadata for {self.client.public_key.bech32()}')
         await self.client.update_metadata(
             name='mcp_server',
             display_name=self.display_name,
             about=json.dumps(await self.list_tools())
         )
-        print(f'Starting message listener for {self.client.public_key.bech32()}')
+        logger.info(f'Starting message listener for {self.client.public_key.bech32()}')
         await self.client.direct_message_listener(callback=self._direct_message_callback)

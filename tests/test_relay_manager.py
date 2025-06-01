@@ -2,11 +2,12 @@ import asyncio
 import os
 import time
 from dotenv import load_dotenv
+load_dotenv()
+
 from agentstr.relay_manager import RelayManager
 from pynostr.key import PrivateKey
 
 
-load_dotenv()
 
 async def test_relay_manager():
     relays = os.getenv('NOSTR_RELAYS').split(',')

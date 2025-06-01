@@ -1,6 +1,9 @@
 import json
 from typing import Any, Tuple, Optional
 from pydantic import BaseModel
+from agentstr.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Skill(BaseModel):
@@ -116,8 +119,8 @@ async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: c
     if thread_id:
         CHAT_HISTORY[thread_id] = user_message
 
-    print(f"Agent router: {user_message}")
-    print(f"Agent card: {agent_card.model_dump()}")
+    logger.debug(f"Agent router: {user_message}")
+    logger.debug(f"Agent card: {agent_card.model_dump()}")
 
     # Prepare the prompt for the LLM
     prompt = f"""You are an agent router that determines if an agent can handle a user's request.
@@ -152,14 +155,14 @@ Respond with a JSON object with these fields:
     "skills_used": [string]   # Names of skills being used, if any
 }
     """
-    print(f'Prompt: {prompt}')
+    logger.debug(f'Prompt: {prompt}')
     try:
         # Get the LLM response
         response = await llm_callable(prompt)
         
         # Seek to first { and last }
         response = response[response.find('{'):response.rfind('}')+1]
-        print(f'LLM response: {response}')
+        logger.debug(f'LLM response: {response}')
 
         # Parse the response
         try:
@@ -188,15 +191,15 @@ Respond with a JSON object with these fields:
                 if agent_card.satoshis is not None:
                     cost += agent_card.satoshis
                 
-            print(f'Router response: {can_handle}, {cost}, {user_message}, {skills_used}')
+            logger.debug(f'Router response: {can_handle}, {cost}, {user_message}, {skills_used}')
             return can_handle, cost, user_message, skills_used
             
         except (json.JSONDecodeError, ValueError) as e:
-            print(f'Error parsing LLM response: {str(e)}')
+            logger.error(f'Error parsing LLM response: {str(e)}')
             return False, 0, f"Error parsing LLM response: {str(e)}", []
             
     except Exception as e:
-        print(f'Error in agent routing: {str(e)}')
+        logger.error(f'Error in agent routing: {str(e)}')
         return False, 0, f"Error in agent routing: {str(e)}", []
         
 

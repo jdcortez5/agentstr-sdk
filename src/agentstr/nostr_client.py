@@ -1,4 +1,5 @@
-import logging
+"""Nostr client implementation for interacting with the Nostr network."""
+
 import time
 from typing import List, Any, Optional, Callable
 from pynostr.key import PrivateKey
@@ -9,16 +10,9 @@ from pynostr.utils import get_public_key, get_timestamp
 from agentstr.nwc_relay import NWCRelay
 from agentstr.relay import DecryptedMessage
 from agentstr.relay_manager import RelayManager
+from agentstr.logger import get_logger
 
-
-logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger(__name__)
-ack = set([])
-
-
-def log_callback(*args):
-    """Default callback for logging relay messages."""
-    logging.info(f"Received message from {args}")
+logger = get_logger(__name__)
 
 
 class NostrClient:
@@ -27,12 +21,6 @@ class NostrClient:
     This class provides methods to connect to Nostr relays, send and receive direct messages,
     manage metadata, and read posts by tags. It integrates with Nostr Wallet Connect (NWC)
     for payment processing if provided.
-
-    Attributes:
-        relays (List[str]): List of Nostr relay URLs.
-        private_key (PrivateKey): The private key for signing events.
-        public_key (PublicKey): The public key derived from the private key.
-        nwc_client (NWCClient | None): Nostr Wallet Connect client for payment processing.
     """
     def __init__(self, relays: List[str], private_key: str = None, nwc_str: str = None):
         """Initialize the NostrClient.
@@ -42,10 +30,29 @@ class NostrClient:
             private_key: Nostr private key in 'nsec' format.
             nwc_str: Nostr Wallet Connect string for payment processing (optional).
         """
-        self.relays = relays
-        self.private_key = PrivateKey.from_nsec(private_key) if private_key else None
-        self.public_key = self.private_key.public_key if self.private_key else None
-        self.nwc_str = nwc_str
+        logger.info('Initializing NostrClient')
+        try:
+            self.relays = relays
+            logger.debug(f'Using relays: {relays}')
+            
+            if private_key:
+                self.private_key = PrivateKey.from_nsec(private_key)
+                self.public_key = self.private_key.public_key
+                logger.debug(f'Initialized with public key: {self.public_key.bech32()}')
+            else:
+                self.private_key = None
+                self.public_key = None
+                logger.warning('No private key provided, client will be in read-only mode')
+                
+            self.nwc_str = nwc_str
+            if nwc_str:
+                logger.info('Nostr Wallet Connect (NWC) is enabled')
+            else:
+                logger.info('Nostr Wallet Connect (NWC) is not configured')
+                
+        except Exception as e:
+            logger.critical(f'Failed to initialize NostrClient: {str(e)}', exc_info=True)
+            raise
 
     @property
     def relay_manager(self) -> RelayManager:
@@ -53,6 +60,7 @@ class NostrClient:
 
     @property
     def nwc_relay(self) -> NWCRelay | None:
+        """NWCRelay instance if NWC is configured."""
         return NWCRelay(self.nwc_str) if self.nwc_str else None
 
     def sign(self, event: Event) -> Event:
@@ -84,14 +92,7 @@ class NostrClient:
         return await self.relay_manager.get_events(filters)
 
     async def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Optional[Metadata]:
-        """Retrieve metadata for a given public key.
-
-        Args:
-            public_key: The public key to fetch metadata for (defaults to client's public key).
-
-        Returns:
-            Metadata object or None if not found.
-        """
+        """Fetch metadata for a public key (or self if none provided)."""
         public_key = get_public_key(public_key if isinstance(public_key, str) else public_key.hex()) if public_key else self.public_key
         filters = Filters(kinds=[EventKind.SET_METADATA], authors=[public_key.hex()], limit=1)
         event = await self.relay_manager.get_event(filters)
@@ -150,25 +151,41 @@ class NostrClient:
 
         await self.relay_manager.send_event(metadata.to_event())
 
-    async def send_direct_message(self, recipient_pubkey: str, message: str, event_ref: str = None):
-        """Send an encrypted direct message to a recipient and wait for a response.
+    async def send_direct_message(self, recipient_pubkey: str, message: str, event_ref: str = None) -> Event:
+        """Send an encrypted direct message to a recipient.
 
         Args:
-            recipient_pubkey: The recipient's public key.
-            message: The message content (string or dict, which will be JSON-encoded).
-        """
-        await self.relay_manager.send_message(message=message, recipient_pubkey=recipient_pubkey, event_ref=event_ref)
-
-    async def receive_direct_message(self, recipient_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage:
-        """Receive an encrypted direct message from a recipient.
-
-        Args:
-            recipient_pubkey: The recipient's public key.
-            timeout: Timeout in seconds for receiving a message.
+            recipient_pubkey: The recipient's public key in hex or bech32 format.
+            message: The message content to send.
+            event_ref: Optional event ID to reference in the message.
 
         Returns:
-            DecryptedMessage object containing the message content.
+            The sent event.
         """
+        logger.info(f'Sending direct message to {recipient_pubkey[:10]}...')
+        logger.debug(f'Message content: {message[:100]}...')
+        
+        if not self.private_key:
+            error_msg = "Private key is required to send messages"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        try:
+            event = await self.relay_manager.send_message(
+                message=message,
+                recipient_pubkey=recipient_pubkey,
+                event_ref=event_ref
+            )
+            logger.info(f'Successfully sent direct message with event ID: {event.id}')
+            logger.debug(f'Full event: {event.to_dict()}')
+            return event
+            
+        except Exception as e:
+            logger.error(f'Failed to send direct message: {str(e)}', exc_info=True)
+            raise
+
+    async def receive_direct_message(self, recipient_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
+        """Wait for and return the next direct message from a recipient."""
         return await self.relay_manager.receive_message(recipient_pubkey, timestamp=timestamp, timeout=timeout)
 
     async def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 30, event_ref: str = None) -> DecryptedMessage:

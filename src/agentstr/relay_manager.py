@@ -6,13 +6,22 @@ from expiringdict import ExpiringDict
 from pynostr.encrypted_dm import EncryptedDirectMessage
 from pynostr.event import Event
 from pynostr.filters import Filters
-from pynostr.key import PrivateKey
 from pynostr.utils import get_public_key
 from agentstr.relay import DecryptedMessage, EventRelay
+from agentstr.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class RelayManager(object):
-    def __init__(self, relays: List[str], private_key: PrivateKey):
+    """Manages connections to multiple Nostr relays and handles message passing.
+    
+    Args:
+        relays: List of relay URLs to connect to.
+        private_key: Optional private key for signing events.
+    """
+    def __init__(self, relays: List[str], private_key: str = None):
+        logger.debug(f'Initializing RelayManager with {len(relays)} relays')
         self._relays = relays
         self.private_key = private_key
         self.public_key = self.private_key.public_key if self.private_key else None
@@ -22,6 +31,10 @@ class RelayManager(object):
         return [EventRelay(relay, self.private_key, self.public_key) for relay in self._relays]
     
     async def get_events(self, filters: Filters, limit: int = 10, timeout: int = 30, close_on_eose: bool = True) -> List[Event]:
+        """Fetch events matching the given filters from connected relays.
+        
+        Returns up to `limit` unique events, stopping early if possible.
+        """
         limit = filters.limit if filters.limit else limit
         event_id_map = {}
         result = None
@@ -47,12 +60,14 @@ class RelayManager(object):
         return result
 
     async def get_event(self, filters: Filters, timeout: int = 30, close_on_eose: bool = True) -> Event:
+        """Get a single event matching the filters or None if not found."""
         result = await self.get_events(filters, limit=1, timeout=timeout, close_on_eose=close_on_eose)
         if result and len(result) > 0:
             return result[0]
         return None
 
     async def send_event(self, event: Event) -> Event:
+        """Send an event to all connected relays."""
         tasks = []
         event.created_at = int(time.time())
         event.compute_id()
@@ -62,6 +77,7 @@ class RelayManager(object):
         await asyncio.gather(*tasks)
 
     def encrypt_message(self, message: str | dict, recipient_pubkey: str, event_ref: str = None) -> Event:
+        """Encrypt a message for the recipient and prepare it as a Nostr event."""
         recipient = get_public_key(recipient_pubkey)
         dm = EncryptedDirectMessage(reference_event_id=event_ref)
         
@@ -76,35 +92,85 @@ class RelayManager(object):
         return event
 
     async def send_message(self, message: str | dict, recipient_pubkey: str, event_ref: str = None) -> Event:
-        tasks = []
-        event = self.encrypt_message(message, recipient_pubkey, event_ref)
-        #print(f'Sending message: {event.to_dict()}')
-        for relay in self.relays:   
-            tasks.append(asyncio.create_task(relay.send_event(event)))
-        await asyncio.gather(*tasks)
-        return event
+        """Send an encrypted message to a recipient through all connected relays."""
+        logger.info(f'Sending message to {recipient_pubkey[:10]}...')
+        logger.debug(f'Message content: {message}')
+        
+        try:
+            event = self.encrypt_message(message, recipient_pubkey, event_ref)
+            logger.debug(f'Encrypted message event: {event.id}')
+            
+            tasks = []
+            for relay in self.relays:
+                logger.debug(f'Queueing message for relay: {relay.relay}')
+                tasks.append(asyncio.create_task(relay.send_event(event)))
+                
+            logger.debug(f'Dispatching message to {len(tasks)} relays')
+            await asyncio.gather(*tasks)
+            logger.info(f'Successfully sent message with ID: {event.id}')
+            
+            return event
+            
+        except Exception as e:
+            logger.error(f'Failed to send message: {str(e)}', exc_info=True)
+            raise
 
     async def receive_message(self, author_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
-        tasks = []
+        """Wait for and return the next message from the specified author."""
+        logger.info(f'Waiting for message from {author_pubkey[:10]}...')
+        logger.debug(f'Timeout: {timeout}s, Timestamp: {timestamp}')
+        
         t0 = time.time()
-        for relay in self.relays:   
-            tasks.append(asyncio.create_task(relay.receive_message(author_pubkey, timestamp, timeout)))
-        for task in asyncio.as_completed(tasks):
-            result = await task
-            #print(f'Received message in receive_message: {result}')
-            if result:
-                return result
-            if timeout < time.time() - t0:
-                break            
+        tasks = []
+        
+        try:
+            # Start receive tasks for all relays
+            for relay in self.relays:
+                logger.debug(f'Starting receive task for relay: {relay.relay}')
+                task = asyncio.create_task(relay.receive_message(author_pubkey, timestamp, timeout))
+                tasks.append(task)
+            
+            # Wait for the first successful response
+            for task in asyncio.as_completed(tasks):
+                try:
+                    result = await task
+                    if result:
+                        logger.info(f'Received message from {author_pubkey[:10]}')
+                        logger.debug(f'Message content: {result.message[:100]}...')
+                        return result
+                    
+                    # Check timeout
+                    if time.time() - t0 > timeout:
+                        logger.warning(f'Receive operation timed out after {timeout} seconds')
+                        break
+                        
+                except Exception as e:
+                    logger.warning(f'Error in receive task: {str(e)}')
+                    continue
+                    
+            logger.debug('No messages received before timeout')
+            return None
+            
+        except Exception as e:
+            logger.error(f'Error in receive_message: {str(e)}', exc_info=True)
+            raise   
         return None
 
     async def send_receive_message(self, message: str | dict, recipient_pubkey: str, timeout: int = 3, event_ref: str = None) -> DecryptedMessage | None:
+        """Send a message and wait for a response from the recipient.
+        
+        Returns the first response received within the timeout period.
+        """
         dm_event = await self.send_message(message, recipient_pubkey, event_ref)
         timestamp = dm_event.created_at
-        #print(f'Sent receive DM event: {dm_event.to_dict()}')
+        logger.debug(f'Sent receive DM event: {dm_event.to_dict()}')
         return await self.receive_message(recipient_pubkey, timestamp, timeout)
 
     async def event_listener(self, filters: Filters, callback: Callable[[Event], None]):
+        """Start listening for events matching the given filters.
+        
+        The callback will be called for each matching event.
+        """
         event_cache = ExpiringDict(max_len=1000, max_age_seconds=300)
         lock = asyncio.Lock()
         tasks = []
@@ -113,6 +179,10 @@ class RelayManager(object):
         await asyncio.gather(*tasks)
 
     async def direct_message_listener(self, filters: Filters, callback: Callable[[Event, str], None]):
+        """Start listening for direct messages.
+        
+        The callback will be called with each received message and its decrypted content.
+        """
         event_cache = ExpiringDict(max_len=1000, max_age_seconds=300)
         lock = asyncio.Lock()
         tasks = []
@@ -121,6 +191,7 @@ class RelayManager(object):
         await asyncio.gather(*tasks)
 
     async def get_following(self, pubkey: str = None) -> list[str]:
+        """Get the list of public keys that the specified user follows."""
         pubkey = get_public_key(pubkey).hex() if pubkey else self.public_key.hex()
         filters = Filters(authors=[pubkey], kinds=[3], limit=1)
         event = await self.get_event(filters)

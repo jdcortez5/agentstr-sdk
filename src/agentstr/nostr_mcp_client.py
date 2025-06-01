@@ -1,21 +1,17 @@
-import asyncio
 import json
 import time
 from typing import Any, List
 from pynostr.utils import get_public_key
 from agentstr.nostr_client import NostrClient
+from agentstr.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class NostrMCPClient:
-    """A client for interacting with a Model Context Protocol (MCP) server on Nostr.
+    """Client for interacting with Model Context Protocol (MCP) servers on Nostr.
 
-    This client discovers tools available on an MCP server and allows calling them,
-    handling any required payments via Nostr Wallet Connect (NWC).
-
-    Attributes:
-        client (NostrClient): Nostr client for communication.
-        mcp_pubkey (str): Public key of the MCP server.
-        tool_to_sats_map (dict): Mapping of tool names to required satoshis.
+    Discovers and calls tools from MCP servers, handling payments via NWC when needed.
     """
     def __init__(self, mcp_pubkey: str, nostr_client: NostrClient = None,
                  relays: List[str] = None, private_key: str = None, nwc_str: str = None):
@@ -30,7 +26,7 @@ class NostrMCPClient:
         """
         self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
         self.mcp_pubkey = get_public_key(mcp_pubkey).hex()
-        self.tool_to_sats_map = {}
+        self.tool_to_sats_map = {}  # Maps tool names to their satoshi costs
 
     async def list_tools(self) -> dict[str, Any] | None:
         """Retrieve the list of available tools from the MCP server.
@@ -60,21 +56,21 @@ class NostrMCPClient:
         }), timeout=timeout)
 
         if response is None:
-            print('Tool call returned None')
+            logger.warning('Tool call returned None')
             return None
 
         message = response.message
         timestamp = int(time.time())
 
-        print(f'MCP Client received message: {message}')
+        logger.debug(f'MCP Client received message: {message}')
         if isinstance(message, str) and message.startswith('lnbc'):
             invoice = message.strip()
-            print(f'Paying invoice: {invoice}')
+            logger.info(f'Paying invoice: {invoice}')
             await self.client.nwc_relay.try_pay_invoice(invoice=invoice, amount=self.tool_to_sats_map[name])
             response = await self.client.receive_direct_message(self.mcp_pubkey, timestamp=timestamp, timeout=timeout) 
 
         if response:
-            print(f'MCP Client received response.message: {response.message}')
+            logger.debug(f'MCP Client received response.message: {response.message}')
             return json.loads(response.message)
         return None
 

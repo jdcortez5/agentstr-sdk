@@ -1,34 +1,41 @@
 import asyncio
-import threading
-import json
-import time
-from typing import Any, List, Callable
+from typing import Any, List, Callable, Optional
 from pynostr.event import Event
-import requests
 from agentstr.a2a import AgentCard, ChatInput, agent_router_v2, RouterResponse
 from agentstr.nostr_client import NostrClient
 from pydantic import BaseModel
+from agentstr.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class NoteFilters(BaseModel):
-    """Filters for Nostr notes."""
-
+    """Filters for filtering Nostr notes/events.
+    
+    Attributes:
+        nostr_pubkeys: Filter by specific public keys
+        nostr_tags: Filter by specific tags
+        following_only: Only show notes from followed users (not implemented)
+    """
     nostr_pubkeys: list[str] | None = None
     nostr_tags: list[str] | None = None
-    followers_only: bool = True  # Not implemented
-    following_only: bool = False  # Not implemented
+    following_only: bool = False
 
 
 class NostrAgentServer:
-    """A server that integrates an external agent with Nostr, handling direct messages.
-
-    This server communicates with an external agent (e.g., a chatbot) via an API and
-    processes direct messages received over Nostr, with optional payment requirements.
+    """Server that integrates an external agent with the Nostr network.
+    
+    Handles direct messages and optional payments, routing them to an external agent.
     """
-    def __init__(self, nostr_client: NostrClient = None,
-                 relays: List[str] = None, private_key: str = None, nwc_str: str = None, agent_url:str = None, chat_url_path: str = '/chat', info_url_path: str = '/info', 
-                 agent_info: AgentCard = None, agent_callable: Callable[[ChatInput], str] = None,
-                 note_filters: NoteFilters = None, router_llm: Any = None):
+    def __init__(self, 
+                 nostr_client: NostrClient = None,
+                 relays: List[str] = None, 
+                 private_key: str = None, 
+                 nwc_str: str = None, 
+                 agent_info: AgentCard = None, 
+                 agent_callable: Callable[[ChatInput], str] = None,
+                 note_filters: NoteFilters = None, 
+                 router_llm: Any = None):
         """Initialize the agent server. If agent_info and agent_callable are provided, agent_url, chat_url_path, and info_url_path are ignored.
 
         Args:
@@ -47,7 +54,7 @@ class NostrAgentServer:
         self.note_filters = note_filters
         self.router_llm = router_llm
 
-    async def chat(self, message: str, thread_id: str | None = None) -> Any:
+    async def chat(self, message: str, thread_id: Optional[str] = None) -> Any:
         """Send a message to the agent and retrieve the response.
 
         Args:
@@ -79,16 +86,16 @@ Only use the following tools: [{skills_used}]
         print(f'Handling paid invoice')
 
         async def on_success():
-            print(f"Payment succeeded for {self.agent_info.name}")
+            logger.info(f"Payment succeeded for {self.agent_info.name}")
             result = await self.chat(message, thread_id=event.pubkey)
             response = str(result)
-            print(f'On success response: {response}')
+            logger.debug(f'On success response: {response}')
             await self.client.send_direct_message(event.pubkey, response)
 
 
         async def on_failure():
             response = "Payment failed. Please try again."
-            print(f"On failure response: {response}")
+            logger.error(f"On failure response: {response}")
             await self.client.send_direct_message(event.pubkey, response)
 
         await self.client.nwc_relay.on_payment_success(
@@ -107,15 +114,15 @@ Only use the following tools: [{skills_used}]
             message: The message content.
         """
         if message.strip().startswith('{') or message.strip().startswith('['):
-            print(f'Ignoring JSON messages')
+            logger.debug('Ignoring JSON messages')
             return
         elif message.strip().startswith('lnbc') and ' ' not in message.strip():
-            print(f'Ignoring lightning invoices')
+            logger.debug('Ignoring lightning invoices')
             return
         message = message.strip()
         invoice = None
         router_response = None
-        print(f"Request: {message}")
+        logger.debug(f"Request: {message}")
         try:
             response = None
             cost_sats = None
@@ -141,11 +148,10 @@ Only use the following tools: [{skills_used}]
         except Exception as e:
             response = f'Error in direct message callback: {e}'
             
-        print(f'Response: {response}')
+        logger.debug(f'Response: {response}')
         tasks = []
         tasks.append(self.client.send_direct_message(event.pubkey, response))
         if invoice:
-            print(f'Handling paid invoice')
             tasks.append(self._handle_paid_invoice(event, message, invoice, router_response))
         await asyncio.gather(*tasks)
 
@@ -158,10 +164,10 @@ Only use the following tools: [{skills_used}]
         """
         try:
             content = event.content
-            print(f"Received note from {event.pubkey}: {content}")
+            logger.info(f"Received note from {event.pubkey}: {content}")
             
             router_response = await agent_router_v2(content, self.agent_info, self.router_llm, thread_id=event.pubkey)
-            print(f"Router response: {router_response.model_dump()}")
+            logger.debug(f"Router response: {router_response.model_dump()}")
 
             if router_response.can_handle:
                 # Formulate and send direct message to the user
@@ -176,11 +182,11 @@ Only use the following tools: [{skills_used}]
                 await asyncio.gather(*tasks)
             
         except Exception as e:
-            print(f"Error processing note: {e}")
+            logger.error(f"Error processing note: {e}", exc_info=True)
 
     async def start(self):
         """Start the agent server, updating metadata and listening for direct messages and notes."""
-        print(f'Updating metadata for {self.client.public_key.bech32()}')
+        logger.info(f'Updating metadata for {self.client.public_key.bech32()}')
         if self.agent_info:
             await self.client.update_metadata(
                 name='agent_server',
@@ -191,7 +197,7 @@ Only use the following tools: [{skills_used}]
         tasks = []
         # Start note listener if filters are provided (in new thread)
         if self.note_filters is not None:
-            print('Starting note listener with filters:', self.note_filters.model_dump())
+            logger.info(f'Starting note listener with filters: {self.note_filters.model_dump()}')
             tasks.append(
                 self.client.note_listener(
                     callback=self._note_callback,
@@ -203,7 +209,7 @@ Only use the following tools: [{skills_used}]
             )
         
         # Start direct message listener
-        print(f'Starting message listener for {self.client.public_key.bech32()}')
+        logger.info(f'Starting message listener for {self.client.public_key.bech32()}')
         
         await self.client.direct_message_listener(callback=self._direct_message_callback)
         

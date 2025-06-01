@@ -2,8 +2,6 @@ import json
 from typing import List, Dict, Any
 from agentstr.nostr_client import NostrClient
 from agentstr.logger import get_logger
-logger = get_logger(__name__)
-
 try:
     from langchain_community.embeddings import FakeEmbeddings
     from langchain_core.vectorstores import InMemoryVectorStore
@@ -19,19 +17,14 @@ except ImportError:
     ChatOpenAI = 'ChatOpenAI'
     langchain_installed = False
 
+logger = get_logger(__name__)
+
 
 class NostrRAG:
-    """A Retrieval-Augmented Generation (RAG) system for querying Nostr events.
-
-    This class integrates with the Nostr protocol to fetch events based on tags,
-    builds a knowledge base using a vector store, and supports querying the knowledge
-    base with optional questions. It uses embeddings to enable similarity-based retrieval.
-
-    Attributes:
-        nostr_client (NostrClient): Client for interacting with Nostr relays.
-        embeddings (Any): Embedding model for vectorizing documents (defaults to FakeEmbeddings).
-        vector_store (InMemoryVectorStore): Vector store for storing and querying documents.
-        llm (ChatOpenAI): Language model for generating responses.
+    """Retrieval-Augmented Generation (RAG) system for Nostr events.
+    
+    Fetches Nostr events, builds a vector store knowledge base, and enables
+    semantic search and question answering over the indexed content.
     """
     def __init__(self, nostr_client: NostrClient = None, vector_store=None, relays: List[str] = None,
                  private_key: str = None, nwc_str: str = None, embeddings=None, llm=None, llm_model_name=None, llm_base_url=None, llm_api_key=None):
@@ -122,16 +115,15 @@ Previous hashtags: {history}
         hashtags = await self._select_hashtags(question)
         hashtags = [hashtag.lstrip('#') for hashtag in hashtags]
 
-        print(f"Selected hashtags: {hashtags}")
+        logger.info(f"Selected hashtags: {hashtags}")
 
         # Fetch events for each hashtag
         events = await self.nostr_client.read_posts_by_tag(tags=hashtags, limit=limit)
         
         # Process events into documents
         documents = [self._process_event(event) for event in events]
-        
         self.vector_store.add_texts([doc.page_content for doc in documents])
-        
+
         return events
 
     async def retrieve(self, question: str, limit: int = 5) -> List[Document]:
@@ -152,6 +144,7 @@ Previous hashtags: {history}
 
         Args:
             question: The user's question
+            limit: Number of documents to retrieve for context
 
         Returns:
             The generated response
