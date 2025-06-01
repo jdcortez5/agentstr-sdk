@@ -36,63 +36,16 @@ class NostrAgentServer:
             relays: List of Nostr relay URLs (if no client provided).
             private_key: Nostr private key (if no client provided).
             nwc_str: Nostr Wallet Connect string for payments (optional).
-            agent_url: URL of the external agent API (optional).
-            chat_url_path: Path to the chat endpoint of the external agent API (optional).
-            info_url_path: Path to the info endpoint of the external agent API (optional).
             agent_info: Agent information (optional).
-            agent_callable: Callable to handle agent responses (optional).
+            agent_callable: Callable to handle agent responses.
             note_filters: Filters for listening to Nostr notes (optional).
             router_llm: LLM to use for routing (optional).
         """
         self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
-        self.agent_url = agent_url
-        self.chat_url_path = chat_url_path
-        self.info_url_path = info_url_path
-        self.agent_callable = agent_callable or self._chat_http
-        self._agent_info = agent_info or (self._get_agent_info() if agent_url else None)
-        self.satoshis = self._agent_info.satoshis if self._agent_info else 0
+        self.agent_info = agent_info
+        self.agent_callable = agent_callable
         self.note_filters = note_filters
         self.router_llm = router_llm
-
-    def _get_agent_info(self) -> AgentCard:
-        """Fetch metadata from the agent API.
-
-        Returns:
-            AgentCard containing agent metadata.
-        """
-        response = requests.get(f"{self.agent_url}{self.info_url_path}", headers={'Content-Type': 'application/json'}).json()
-        return AgentCard.model_validate(response)
-
-    def agent_info(self) -> AgentCard:
-        """Get the agent's metadata.
-
-        Returns:
-            AgentCard containing agent metadata.
-        """
-        return self._agent_info
-
-    async def _chat_http(self, chat_input: ChatInput) -> Any:
-        """Send a message to the agent and retrieve the response.
-
-        Args:
-            chat_input: The chat input to send to the agent.
-
-        Returns:
-            Response from the agent, or an error message.
-        """
-        request = {'messages': chat_input.messages}
-        if chat_input.thread_id:
-            request['thread_id'] = chat_input.thread_id
-        print(f'Sending request: {json.dumps(request)}')
-        response = requests.post(f"{self.agent_url}{self.chat_url_path}", headers={'Content-Type': 'application/json'}, json=request)
-        try:
-            response.raise_for_status()
-            result = response.text.replace('\\n', '\n').strip('"').strip()
-        except Exception as e:
-            print(f"Error: {e}")
-            result = 'Unknown error'
-        print(f'Response: {result}')
-        return result
 
     async def chat(self, message: str, thread_id: str | None = None) -> Any:
         """Send a message to the agent and retrieve the response.
@@ -126,7 +79,7 @@ Only use the following tools: [{skills_used}]
         print(f'Handling paid invoice')
 
         async def on_success():
-            print(f"Payment succeeded for {self.agent_info().name}")
+            print(f"Payment succeeded for {self.agent_info.name}")
             result = await self.chat(message, thread_id=event.pubkey)
             response = str(result)
             print(f'On success response: {response}')
@@ -138,13 +91,11 @@ Only use the following tools: [{skills_used}]
             print(f"On failure response: {response}")
             await self.client.send_direct_message(event.pubkey, response)
 
-        asyncio.create_task(
-            self.client.nwc_client.on_payment_success(
-                invoice=invoice,
-                callback=on_success,
-                timeout=900,
-                unsuccess_callback=on_failure
-            )
+        await self.client.nwc_relay.on_payment_success(
+            invoice=invoice,
+            callback=on_success,
+            timeout=900,
+            unsuccess_callback=on_failure
         )
 
 
@@ -169,7 +120,7 @@ Only use the following tools: [{skills_used}]
             response = None
             cost_sats = None
             if self.router_llm:
-                router_response = agent_router_v2(message, self.agent_info(), self.router_llm, thread_id=event.pubkey)
+                router_response = await agent_router_v2(message, self.agent_info, self.router_llm, thread_id=event.pubkey)
                 response = router_response.user_message
                 if router_response.can_handle:
                     cost_sats = router_response.cost_sats
@@ -177,9 +128,9 @@ Only use the following tools: [{skills_used}]
                     await self.client.send_direct_message(event.pubkey, response)
                     return
 
-            cost_sats = cost_sats or self.satoshis
+            cost_sats = cost_sats or (self.agent_info.satoshis if self.agent_info else 0)
             if cost_sats > 0:
-                invoice = self.client.nwc_client.make_invoice(amt=cost_sats, desc=f"Payment for {self.agent_info().name}")
+                invoice = await self.client.nwc_relay.make_invoice(amount=cost_sats, description=f"Payment for {self.agent_info.name}")
                 if response is not None:
                     response = f'{response}\n\nPlease pay {cost_sats} sats: {invoice}'
                 else:
@@ -191,10 +142,12 @@ Only use the following tools: [{skills_used}]
             response = f'Error in direct message callback: {e}'
             
         print(f'Response: {response}')
-        await self.client.send_direct_message(event.pubkey, response)
+        tasks = []
+        tasks.append(self.client.send_direct_message(event.pubkey, response))
         if invoice:
             print(f'Handling paid invoice')
-            await self._handle_paid_invoice(event, message, invoice, router_response)
+            tasks.append(self._handle_paid_invoice(event, message, invoice, router_response))
+        await asyncio.gather(*tasks)
 
 
     async def _note_callback(self, event: Event):
@@ -207,19 +160,20 @@ Only use the following tools: [{skills_used}]
             content = event.content
             print(f"Received note from {event.pubkey}: {content}")
             
-            router_response = agent_router_v2(content, self.agent_info(), self.router_llm, thread_id=event.pubkey)
+            router_response = await agent_router_v2(content, self.agent_info, self.router_llm, thread_id=event.pubkey)
             print(f"Router response: {router_response.model_dump()}")
 
             if router_response.can_handle:
                 # Formulate and send direct message to the user
                 response = router_response.user_message
-
+                tasks = []
                 if router_response.cost_sats > 0:
-                    invoice = self.client.nwc_client.make_invoice(amt=router_response.cost_sats, desc=f"Payment to {self.agent_info().name}")
+                    invoice = await self.client.nwc_relay.make_invoice(amount=router_response.cost_sats, description=f"Payment to {self.agent_info.name}")
                     response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
-                    self._handle_paid_invoice(event, content, invoice, router_response)
+                    tasks.append(self._handle_paid_invoice(event, content, invoice, router_response))
 
-                await self.client.send_direct_message(event.pubkey, response, event_ref=event.id)
+                tasks.append(self.client.send_direct_message(event.pubkey, response, event_ref=event.id))
+                await asyncio.gather(*tasks)
             
         except Exception as e:
             print(f"Error processing note: {e}")
@@ -227,11 +181,11 @@ Only use the following tools: [{skills_used}]
     async def start(self):
         """Start the agent server, updating metadata and listening for direct messages and notes."""
         print(f'Updating metadata for {self.client.public_key.bech32()}')
-        if self.agent_info():
+        if self.agent_info:
             await self.client.update_metadata(
                 name='agent_server',
-                display_name=self.agent_info().name,
-                about=self.agent_info().model_dump_json()
+                display_name=self.agent_info.name,
+                about=self.agent_info.model_dump_json()
             )
         
         tasks = []

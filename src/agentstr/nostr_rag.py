@@ -9,7 +9,7 @@ try:
     from langchain_openai import ChatOpenAI
 except ImportError:
     import logging
-    logging.warning("Langchain not found. Please install it to use NostrRAG. `pip install agentstr-sdk[rag]`")
+    #logging.warning("Langchain not found. Please install it to use NostrRAG. `pip install agentstr-sdk[rag]`")
     FakeEmbeddings = 'FakeEmbeddings'
     InMemoryVectorStore = 'InMemoryVectorStore'
     Document = 'Document'
@@ -52,7 +52,7 @@ class NostrRAG:
             raise ValueError("llm or llm_model_name must be provided")
         self.llm = llm or ChatOpenAI(model_name=llm_model_name, base_url=llm_base_url, api_key=llm_api_key, temperature=0)
 
-    def _select_hashtags(self, question: str, previous_hashtags: List[str] = None) -> List[str]:
+    async def _select_hashtags(self, question: str, previous_hashtags: List[str] = None) -> List[str]:
         """Select relevant hashtags for the given question.
 
         Args:
@@ -73,7 +73,7 @@ Previous hashtags: {history}
         
         history = json.dumps(previous_hashtags or [])
         prompt = template.format(question=question, history=history)
-        response = self.llm.invoke([HumanMessage(content=prompt)])
+        response = await self.llm.ainvoke([HumanMessage(content=prompt)])
         
         try:
             hashtags = json.loads(response.content)
@@ -101,7 +101,7 @@ Previous hashtags: {history}
 
         return Document(page_content=content, id=event.get('id'), metadata=event)
 
-    def build_knowledge_base(self, question: str, limit: int = 10) -> List[dict]:
+    async def build_knowledge_base(self, question: str, limit: int = 10) -> List[dict]:
         """Build a knowledge base from Nostr events relevant to the question.
 
         Args:
@@ -112,13 +112,13 @@ Previous hashtags: {history}
             List of retrieved events
         """
         # Select relevant hashtags for the question
-        hashtags = self._select_hashtags(question)
+        hashtags = await self._select_hashtags(question)
         hashtags = [hashtag.lstrip('#') for hashtag in hashtags]
 
         print(f"Selected hashtags: {hashtags}")
 
         # Fetch events for each hashtag
-        events = self.nostr_client.read_posts_by_tag(tags=hashtags, limit=limit)
+        events = await self.nostr_client.read_posts_by_tag(tags=hashtags, limit=limit)
         
         # Process events into documents
         documents = [self._process_event(event) for event in events]
@@ -127,7 +127,7 @@ Previous hashtags: {history}
         
         return events
 
-    def retrieve(self, question: str, limit: int = 5) -> List[Document]:
+    async def retrieve(self, question: str, limit: int = 5) -> List[Document]:
         """Retrieve relevant documents from the knowledge base.
 
         Args:
@@ -137,10 +137,10 @@ Previous hashtags: {history}
         Returns:
             List of retrieved documents
         """
-        self.build_knowledge_base(question)
+        await self.build_knowledge_base(question)
         return self.vector_store.similarity_search(question, k=limit)
 
-    def query(self, question: str, limit: int = 5) -> str:
+    async def query(self, question: str, limit: int = 5) -> str:
         """Ask a question using the knowledge base.
 
         Args:
@@ -151,7 +151,7 @@ Previous hashtags: {history}
         """
 
         # Get relevant documents
-        relevant_docs = self.retrieve(question, limit)
+        relevant_docs = await self.retrieve(question, limit)
         
         # Generate response using the LLM
         template = """
@@ -169,5 +169,5 @@ Answer:"""
             context="\n\n".join([doc.page_content for doc in relevant_docs])
         )
         
-        response = self.llm.invoke([HumanMessage(content=prompt)])
+        response = await self.llm.ainvoke([HumanMessage(content=prompt)])
         return response.content

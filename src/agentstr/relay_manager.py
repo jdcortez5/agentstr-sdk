@@ -119,3 +119,11 @@ class RelayManager(object):
         for relay in self.relays:   
             tasks.append(asyncio.create_task(relay.direct_message_listener(filters, callback, event_cache, lock)))
         await asyncio.gather(*tasks)
+
+    async def get_following(self, pubkey: str = None) -> list[str]:
+        pubkey = get_public_key(pubkey).hex() if pubkey else self.public_key.hex()
+        filters = Filters(authors=[pubkey], kinds=[3], limit=1)
+        event = await self.get_event(filters)
+        if event:
+            return [tag[1] for tag in event.tags if tag[0] == 'p']
+        return []

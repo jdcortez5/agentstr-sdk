@@ -1,7 +1,5 @@
 import logging
-import uuid
 import time
-import threading
 from typing import List, Any, Optional, Callable
 from pynostr.key import PrivateKey
 from pynostr.event import Event, EventKind
@@ -47,11 +45,15 @@ class NostrClient:
         self.relays = relays
         self.private_key = PrivateKey.from_nsec(private_key) if private_key else None
         self.public_key = self.private_key.public_key if self.private_key else None
-        self.nwc_client = NWCClient(nwc_str) if nwc_str else None
+        self.nwc_str = nwc_str
 
     @property
-    def relay_manager(self):
+    def relay_manager(self) -> RelayManager:
         return RelayManager(self.relays, self.private_key)
+
+    @property
+    def nwc_relay(self) -> NWCRelay | None:
+        return NWCRelay(self.nwc_str) if self.nwc_str else None
 
     def sign(self, event: Event) -> Event:
         """Sign an event with the client's private key.
@@ -179,21 +181,21 @@ class NostrClient:
         return await self.relay_manager.send_receive_message(message=message, recipient_pubkey=recipient_pubkey, timeout=timeout, event_ref=event_ref)
 
     async def note_listener(self, callback: Callable[[Event], Any], pubkeys: List[str] = None, 
-                     tags: List[str] = None, followers_only: bool = False, 
-                     following_only: bool = False, timestamp: int = None):
+                     tags: List[str] = None, following_only: bool = False, timestamp: int = None):
         """Listen for public notes matching the given filters.
 
         Args:
             callback: Function to handle received notes (takes Event as argument).
             pubkeys: List of pubkeys to filter notes from (hex or bech32 format).
             tags: List of tags to filter notes by.
-            followers_only: If True, only show notes from users the key follows (not implemented).
-            following_only: If True, only show notes from users following the key (not implemented).
+            following_only: If True, only show notes from users the agent is following (optional).
             timestamp: Filter messages since this timestamp (optional).
         """
 
         authors = None
-        if pubkeys:
+        if following_only:
+            authors = await self.relay_manager.get_following()
+        elif pubkeys:
             authors = [get_public_key(pk).hex() for pk in pubkeys]        
         filters = Filters(authors=authors, kinds=[EventKind.TEXT_NOTE],
                                 since=timestamp or get_timestamp(), limit=10)

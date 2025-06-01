@@ -1,6 +1,4 @@
-import threading
 import json
-import time
 import asyncio
 from typing import Callable, Any, List
 from pynostr.event import Event
@@ -93,9 +91,9 @@ class NostrMCPServer:
             event: The Nostr event containing the message.
             message: The message content.
         """
-        tasks = []
         message = message.strip()
         print(f"Request: {message}")
+        tasks = []
         try:
             request = json.loads(message)
             if request['action'] == 'list_tools':
@@ -105,7 +103,7 @@ class NostrMCPServer:
                 arguments = request['arguments']
                 satoshis = self.tool_to_sats_map.get(tool_name, 0)
                 if satoshis > 0:
-                    invoice = self.client.nwc_client.make_invoice(amt=satoshis, desc="Payment for tool call")
+                    invoice = await self.client.nwc_relay.make_invoice(amount=satoshis, description=f"Payment for {tool_name} tool")
                     response = invoice
 
                     async def on_success():
@@ -121,12 +119,13 @@ class NostrMCPServer:
                         await self.client.send_direct_message(event.pubkey, json.dumps(response))
 
                     # Run in background
-                    asyncio.create_task(asyncio.to_thread(      
-                        self.client.nwc_client.on_payment_success,
-                        invoice=invoice,
-                        callback=on_success,
-                        unsuccess_callback=on_failure,
-                        timeout=120,
+                    tasks.append(asyncio.create_task(     
+                        self.client.nwc_relay.on_payment_success(
+                            invoice=invoice,
+                            callback=on_success,
+                            unsuccess_callback=on_failure,
+                            timeout=120
+                        )
                     ))
                 else:
                     result = await self.call_tool(tool_name, arguments)
@@ -138,8 +137,8 @@ class NostrMCPServer:
         if not isinstance(response, str):
             response = json.dumps(response)
         print(f'MCP Server response: {response}')
-        await self.client.send_direct_message(event.pubkey, response)
-
+        tasks.append(self.client.send_direct_message(event.pubkey, response))
+        await asyncio.gather(*tasks)
 
     async def start(self):
         """Start the MCP server, updating metadata and listening for direct messages."""

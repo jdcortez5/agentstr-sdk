@@ -1,10 +1,8 @@
 import asyncio
 import json
 import time
-from typing import Any, List, Callable
-from pynostr.event import Event
-from pynostr.key import PrivateKey
-from pynostr.utils import get_timestamp, get_public_key
+from typing import Any, List
+from pynostr.utils import get_public_key
 from agentstr.nostr_client import NostrClient
 
 
@@ -72,7 +70,7 @@ class NostrMCPClient:
         if isinstance(message, str) and message.startswith('lnbc'):
             invoice = message.strip()
             print(f'Paying invoice: {invoice}')
-            await asyncio.to_thread(self.client.nwc_client.try_pay_invoice, invoice=invoice, amt=self.tool_to_sats_map[name])
+            await self.client.nwc_relay.try_pay_invoice(invoice=invoice, amount=self.tool_to_sats_map[name])
             response = await self.client.receive_direct_message(self.mcp_pubkey, timestamp=timestamp, timeout=timeout) 
 
         if response:

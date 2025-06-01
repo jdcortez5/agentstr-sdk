@@ -92,7 +92,7 @@ class RouterResponse(BaseModel):
 CHAT_HISTORY = {}  # Thread id -> [str]
 
 
-def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> Tuple[bool, int, Optional[str]]:
+async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> Tuple[bool, int, Optional[str]]:
     """Determine if an agent can handle a user's request and calculate the cost.
     
     This function uses an LLM to analyze whether the agent's skills match the user's request
@@ -155,7 +155,7 @@ Respond with a JSON object with these fields:
     print(f'Prompt: {prompt}')
     try:
         # Get the LLM response
-        response = llm_callable(prompt)
+        response = await llm_callable(prompt)
         
         # Seek to first { and last }
         response = response[response.find('{'):response.rfind('}')+1]
@@ -200,7 +200,7 @@ Respond with a JSON object with these fields:
         return False, 0, f"Error in agent routing: {str(e)}", []
         
 
-def agent_router_v2(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
+async def agent_router_v2(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
     """Improved version of agent_router with better structured response.
     
     Args:
@@ -212,7 +212,7 @@ def agent_router_v2(user_message: str, agent_card: AgentCard, llm_callable: call
     Returns:
         RouterResponse: Contains the routing decision and details.
     """
-    can_handle, cost, user_message, skills_used = agent_router(user_message, agent_card, llm_callable, thread_id)
+    can_handle, cost, user_message, skills_used = await agent_router(user_message, agent_card, llm_callable, thread_id)
     
     return RouterResponse(
         can_handle=can_handle,

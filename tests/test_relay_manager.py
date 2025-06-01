@@ -27,6 +27,14 @@ async def test_relay_manager():
     assert dm_event.message == "hello"
 
 
+async def test_get_following():
+    relays = os.getenv('NOSTR_RELAYS').split(',')
+    private_key = PrivateKey.from_nsec(os.getenv('AGENT_PRIVATE_KEY'))
+    manager = RelayManager(relays, private_key)
+    following = await manager.get_following()
+    print('Following')
+    print(following)
+
 if __name__ == '__main__':
-    asyncio.run(test_relay_manager())
+    asyncio.run(test_get_following())
     
