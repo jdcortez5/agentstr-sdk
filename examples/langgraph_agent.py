@@ -1,10 +1,12 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import os
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from agentstr import ChatInput, NostrAgentServer
-from dotenv import load_dotenv
 
-load_dotenv()
 
 # Get the environment variables
 relays = os.getenv('NOSTR_RELAYS').split(',')

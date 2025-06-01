@@ -69,7 +69,8 @@ class EventRelay(object):
                             if close_on_eose:
                                 logger.debug('Closing connection on EOSE.')
                                 break
-                        logger.warning(f"Invalid event: {response}")
+                        else:
+                            logger.warning(f"Invalid event: {response}")
                     await asyncio.sleep(0)
                     time_remaining = t0 + timeout - time.time()
                     if time_remaining <= 0:

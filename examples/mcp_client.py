@@ -1,9 +1,11 @@
-import os
-import json
-from agentstr import PrivateKey, NostrMCPClient
 from dotenv import load_dotenv
 
 load_dotenv()
+
+import os
+import json
+from agentstr import PrivateKey, NostrMCPClient
+
 
 # Define relays and private key
 relays   = os.getenv('NOSTR_RELAYS').split(',')

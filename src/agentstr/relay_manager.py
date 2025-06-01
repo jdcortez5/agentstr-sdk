@@ -107,12 +107,12 @@ class RelayManager(object):
                 
             logger.debug(f'Dispatching message to {len(tasks)} relays')
             await asyncio.gather(*tasks)
-            logger.info(f'Successfully sent message with ID: {event.id}')
+            logger.info(f'Successfully sent message to {recipient_pubkey[:10]} with event id: {event.id}')
             
             return event
             
         except Exception as e:
-            logger.error(f'Failed to send message: {str(e)}', exc_info=True)
+            logger.error(f'Failed to send message to {recipient_pubkey[:10]}: {str(e)}', exc_info=True)
             raise
 
     async def receive_message(self, author_pubkey: str, timestamp: int = None, timeout: int = 30) -> DecryptedMessage | None:
@@ -135,8 +135,7 @@ class RelayManager(object):
                 try:
                     result = await task
                     if result:
-                        logger.info(f'Received message from {author_pubkey[:10]}')
-                        logger.debug(f'Message content: {result.message[:100]}...')
+                        logger.info(f'Received message from {author_pubkey[:10]} with id {result.event.id}: {result.message}')
                         return result
                     
                     # Check timeout
@@ -148,7 +147,7 @@ class RelayManager(object):
                     logger.warning(f'Error in receive task: {str(e)}')
                     continue
                     
-            logger.debug('No messages received before timeout')
+            logger.warning('No messages received before timeout')
             return None
             
         except Exception as e:

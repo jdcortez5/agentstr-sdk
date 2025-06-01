@@ -1,8 +1,9 @@
-import os
-from agentstr import NostrMCPServer
 from dotenv import load_dotenv
 
 load_dotenv()
+
+import os
+from agentstr import NostrMCPServer
 
 # Define relays and private key
 relays   = os.getenv('NOSTR_RELAYS').split(',')
