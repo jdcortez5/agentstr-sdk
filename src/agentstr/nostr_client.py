@@ -8,7 +8,7 @@ from pynostr.event import Event, EventKind
 from pynostr.filters import Filters
 from pynostr.metadata import Metadata
 from pynostr.utils import get_public_key, get_timestamp
-from agentstr.nwc_client import NWCClient
+from agentstr.nwc_relay import NWCRelay
 from agentstr.relay import DecryptedMessage
 from agentstr.relay_manager import RelayManager
 
