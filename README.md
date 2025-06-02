@@ -15,7 +15,7 @@
 
 ## Overview
 
-Agentstr SDK is a powerful toolkit for building decentralized agentic applications on the Nostr protocol. It provides seamless integration with MCP (Model Context Protocol), A2A (Agent-to-Agent), and multiple popular agentic frameworks like Agno, DSPy, and Langgraph.
+Agentstr SDK is a powerful toolkit for building decentralized agentic applications on the Nostr protocol. It provides seamless integration with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/introduction), [A2A (Agent-to-Agent)](https://google-a2a.github.io/A2A/), and multiple popular agentic frameworks like [Agno](https://docs.agno.com/introduction), [DSPy](https://dspy.ai/), and [LangGraph](https://www.langchain.com/langgraph).
 
 To ensure full stack decentralization, we recommend using [Routstr](https://routstr.com) as your LLM provider.
 
@@ -32,9 +32,9 @@ To ensure full stack decentralization, we recommend using [Routstr](https://rout
   - Agent-to-tool payments
 
 ### Agent Frameworks
-- **DSPy**
-- **LangGraph**
-- **Agno**
+- **[Agno](https://docs.agno.com/introduction)**
+- **[DSPy](https://dspy.ai/)**
+- **[LangGraph](https://www.langchain.com/langgraph)**
 - **Bring Your Own Agent**
 
 ### MCP (Model Context Protocol) Support
