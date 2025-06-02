@@ -1,7 +1,10 @@
-nostr_rag module
-================
+Nostr RAG (Retrieval-Augmented Generation)
+=======================================
 
-.. automodule:: agentstr.nostr_rag
+This module provides Retrieval-Augmented Generation (RAG) functionality integrated with the Nostr network.
+It enables agents to store Nostr events, retrieve them, and generate contextually relevant information.
+
+.. automodule:: agentstr.nostr_rag  
    :members:
    :undoc-members:
    :show-inheritance:
