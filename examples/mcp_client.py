@@ -15,7 +15,7 @@ private_key = os.getenv("EXAMPLE_MCP_CLIENT_NSEC")
 nwc_str = os.getenv("MCP_CLIENT_NWC_CONN_STR")
 
 # Define MCP server public key
-server_public_key = PrivateKey.from_nsec(os.getenv("EXAMPLE_MCP_SERVER_NSEC")).public_key.bech32()
+server_public_key = os.getenv("EXAMPLE_MCP_SERVER_PUBKEY")
 
 
 async def run()   :

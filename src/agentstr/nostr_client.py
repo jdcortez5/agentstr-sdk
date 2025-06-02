@@ -167,7 +167,7 @@ class NostrClient:
                 recipient_pubkey=recipient_pubkey,
                 event_ref=event_ref,
             )
-            logger.info(f"Successfully sent direct message with event ID: {event.id}")
+            logger.info(f"Successfully sent direct message with event ID: {event.id[:10]}")
             logger.debug(f"Full event: {event.to_dict()}")
             return event
 

@@ -22,6 +22,11 @@ async def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
     return a * b
 
+async def get_weather(city: str) -> str:
+    """Get weather for a given city."""
+    return f"It's always sunny in {city}!"
+
+
 async def run():
     # Define the server
     server = NostrMCPServer(
@@ -34,6 +39,7 @@ async def run():
     # Add tools
     server.add_tool(add) # Free tool
     server.add_tool(multiply, satoshis=3) # Premium tool
+    server.add_tool(get_weather) # Free tool
 
     # Start the server
     await server.start()
