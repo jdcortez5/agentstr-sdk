@@ -3,14 +3,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+
 from agentstr import NostrMCPServer
 
 # Define relays and private key
-relays   = os.getenv('NOSTR_RELAYS').split(',')
-private_key = os.getenv('EXAMPLE_MCP_SERVER_NSEC')
+relays   = os.getenv("NOSTR_RELAYS").split(",")
+private_key = os.getenv("EXAMPLE_MCP_SERVER_NSEC")
 
 # To enable Nostr Wallet Connect
-nwc_str = os.getenv('MCP_SERVER_NWC_CONN_STR')
+nwc_str = os.getenv("MCP_SERVER_NWC_CONN_STR")
 
 # Define tools
 async def add(a: int, b: int) -> int:
@@ -24,10 +25,10 @@ async def multiply(a: int, b: int) -> int:
 async def run():
     # Define the server
     server = NostrMCPServer(
-        "Math MCP Server", 
+        "Math MCP Server",
         relays=relays,
         private_key=private_key,
-        nwc_str=nwc_str
+        nwc_str=nwc_str,
     )
 
     # Add tools

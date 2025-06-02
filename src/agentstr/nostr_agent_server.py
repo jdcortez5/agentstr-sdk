@@ -1,17 +1,19 @@
 import asyncio
-from typing import Any, List, Callable, Optional
-from pynostr.event import Event
-from agentstr.a2a import AgentCard, ChatInput, agent_router_v2, RouterResponse
-from agentstr.nostr_client import NostrClient
+from collections.abc import Callable
+from typing import Any
+
 from pydantic import BaseModel
+from pynostr.event import Event
+
+from agentstr.a2a import AgentCard, ChatInput, RouterResponse, agent_router
 from agentstr.logger import get_logger
+from agentstr.nostr_client import NostrClient
 
 logger = get_logger(__name__)
 
 
 class NoteFilters(BaseModel):
     """Filters for filtering Nostr notes/events.
-    
     Attributes:
         nostr_pubkeys: Filter by specific public keys
         nostr_tags: Filter by specific tags
@@ -24,20 +26,18 @@ class NoteFilters(BaseModel):
 
 class NostrAgentServer:
     """Server that integrates an external agent with the Nostr network.
-    
     Handles direct messages and optional payments, routing them to an external agent.
     """
-    def __init__(self, 
-                 nostr_client: NostrClient = None,
-                 relays: List[str] = None, 
-                 private_key: str = None, 
-                 nwc_str: str = None, 
-                 agent_info: AgentCard = None, 
-                 agent_callable: Callable[[ChatInput], str] = None,
-                 note_filters: NoteFilters = None, 
-                 router_llm: Any = None):
+    def __init__(self,
+                 nostr_client: NostrClient | None = None,
+                 relays: list[str] | None = None,
+                 private_key: str | None = None,
+                 nwc_str: str | None = None,
+                 agent_info: AgentCard | None = None,
+                 agent_callable: Callable[[ChatInput], str] | None = None,
+                 note_filters: NoteFilters | None = None,
+                 router_llm: Any | None = None):
         """Initialize the agent server.
-
         Args:
             nostr_client: Existing NostrClient instance (optional).
             relays: List of Nostr relay URLs (if no client provided).
@@ -54,13 +54,11 @@ class NostrAgentServer:
         self.note_filters = note_filters
         self.router_llm = router_llm
 
-    async def chat(self, message: str, thread_id: Optional[str] = None) -> Any:
+    async def chat(self, message: str, thread_id: str | None = None) -> Any:
         """Send a message to the agent and retrieve the response.
-
         Args:
             message: The message to send to the agent.
             thread_id: Optional thread ID for conversation context.
-
         Returns:
             Response from the agent, or an error message.
         """
@@ -69,8 +67,8 @@ class NostrAgentServer:
     async def _handle_paid_invoice(self, event: Event, message: str, invoice: str, router_response: RouterResponse = None):
         """Handle a paid invoice."""
         if router_response:
-            skills_used = ', '.join(router_response.skills_used)
-            message = f'''I'd like to follow up on our previous exchange:
+            skills_used = ", ".join(router_response.skills_used)
+            message = f"""I'd like to follow up on our previous exchange:
 
 Your Request:
 {message}
@@ -81,17 +79,16 @@ Your Response:
 Could you please proceed with the next steps or provide an update on this matter?
 
 Only use the following tools: [{skills_used}]
-'''
+"""
 
-        logger.info(f'Handling paid invoice')
+        logger.info("Handling paid invoice")
 
         async def on_success():
             logger.info(f"Payment succeeded for {self.agent_info.name}")
             result = await self.chat(message, thread_id=event.pubkey)
             response = str(result)
-            logger.debug(f'On success response: {response}')
+            logger.debug(f"On success response: {response}")
             await self.client.send_direct_message(event.pubkey, response)
-
 
         async def on_failure():
             response = "Payment failed. Please try again."
@@ -102,22 +99,21 @@ Only use the following tools: [{skills_used}]
             invoice=invoice,
             callback=on_success,
             timeout=900,
-            unsuccess_callback=on_failure
+            unsuccess_callback=on_failure,
         )
 
 
     async def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages for agent interaction.
-
         Args:
             event: The Nostr event containing the message.
             message: The message content.
         """
-        if message.strip().startswith('{') or message.strip().startswith('['):
-            logger.debug('Ignoring JSON messages')
+        if message.strip().startswith("{") or message.strip().startswith("["):
+            logger.debug("Ignoring JSON messages")
             return
-        elif message.strip().startswith('lnbc') and ' ' not in message.strip():
-            logger.debug('Ignoring lightning invoices')
+        elif message.strip().startswith("lnbc") and " " not in message.strip():
+            logger.debug("Ignoring lightning invoices")
             return
         message = message.strip()
         invoice = None
@@ -127,7 +123,7 @@ Only use the following tools: [{skills_used}]
             response = None
             cost_sats = None
             if self.router_llm:
-                router_response = await agent_router_v2(message, self.agent_info, self.router_llm, thread_id=event.pubkey)
+                router_response = await agent_router(message, self.agent_info, self.router_llm, thread_id=event.pubkey)
                 response = router_response.user_message
                 if router_response.can_handle:
                     cost_sats = router_response.cost_sats
@@ -139,16 +135,16 @@ Only use the following tools: [{skills_used}]
             if cost_sats > 0:
                 invoice = await self.client.nwc_relay.make_invoice(amount=cost_sats, description=f"Payment for {self.agent_info.name}")
                 if response is not None:
-                    response = f'{response}\n\nPlease pay {cost_sats} sats: {invoice}'
+                    response = f"{response}\n\nPlease pay {cost_sats} sats: {invoice}"
                 else:
                     response = invoice
             else:
                 result = await self.chat(message, thread_id=event.pubkey)
                 response = str(result)
         except Exception as e:
-            response = f'Error in direct message callback: {e}'
-            
-        logger.debug(f'Agent response: {response}')
+            response = f"Error in direct message callback: {e}"
+
+        logger.debug(f"Agent response: {response}")
         tasks = []
         tasks.append(self.client.send_direct_message(event.pubkey, response))
         if invoice:
@@ -158,15 +154,14 @@ Only use the following tools: [{skills_used}]
 
     async def _note_callback(self, event: Event):
         """Handle incoming notes that match the filters.
-        
         Args:
             event: The Nostr event containing the note.
         """
         try:
             content = event.content
             logger.info(f"Received note from {event.pubkey}: {content}")
-            
-            router_response = await agent_router_v2(content, self.agent_info, self.router_llm, thread_id=event.pubkey)
+
+            router_response = await agent_router(content, self.agent_info, self.router_llm, thread_id=event.pubkey)
             logger.info(f"Router response: {router_response.model_dump()}")
 
             if router_response.can_handle:
@@ -175,39 +170,39 @@ Only use the following tools: [{skills_used}]
                 tasks = []
                 if router_response.cost_sats > 0:
                     invoice = await self.client.nwc_relay.make_invoice(amount=router_response.cost_sats, description=f"Payment to {self.agent_info.name}")
-                    response = f'{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}'
+                    response = f"{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}"
                     tasks.append(self._handle_paid_invoice(event, content, invoice, router_response))
 
                 tasks.append(self.client.send_direct_message(event.pubkey, response, event_ref=event.id))
                 await asyncio.gather(*tasks)
-            
+
         except Exception as e:
             logger.error(f"Error processing note: {e}", exc_info=True)
 
     async def start(self):
         """Start the agent server, updating metadata and listening for direct messages and notes."""
-        logger.info(f'Updating metadata for {self.client.public_key.bech32()}')
+        logger.info(f"Updating metadata for {self.client.public_key.bech32()}")
         if self.agent_info:
             await self.client.update_metadata(
-                name='agent_server',
+                name="agent_server",
                 display_name=self.agent_info.name,
-                about=self.agent_info.model_dump_json()
+                about=self.agent_info.model_dump_json(),
             )
-        
+
         tasks = []
         # Start note listener if filters are provided (in new thread)
         if self.note_filters is not None:
-            logger.info(f'Starting note listener with filters: {self.note_filters.model_dump()}')
+            logger.info(f"Starting note listener with filters: {self.note_filters.model_dump()}")
             tasks.append(
                 self.client.note_listener(
                     callback=self._note_callback,
                     pubkeys=self.note_filters.nostr_pubkeys,
                     tags=self.note_filters.nostr_tags,
-                    following_only=self.note_filters.following_only
-                )
+                    following_only=self.note_filters.following_only,
+                ),
             )
-        
+
         # Start direct message listener
-        logger.info(f'Starting message listener for {self.client.public_key.bech32()}')
+        logger.info(f"Starting message listener for {self.client.public_key.bech32()}")
         tasks.append(self.client.direct_message_listener(callback=self._direct_message_callback))
-        await asyncio.gather(*tasks) 
+        await asyncio.gather(*tasks)

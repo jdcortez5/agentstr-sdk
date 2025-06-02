@@ -1,10 +1,11 @@
-from functools import partial
 import json
 import time
-from typing import Any, List
+from typing import Any
+
 from pynostr.utils import get_public_key
-from agentstr.nostr_client import NostrClient
+
 from agentstr.logger import get_logger
+from agentstr.nostr_client import NostrClient
 
 logger = get_logger(__name__)
 
@@ -14,8 +15,8 @@ class NostrMCPClient:
 
     Discovers and calls tools from MCP servers, handling payments via NWC when needed.
     """
-    def __init__(self, mcp_pubkey: str, nostr_client: NostrClient = None,
-                 relays: List[str] = None, private_key: str = None, nwc_str: str = None):
+    def __init__(self, mcp_pubkey: str, nostr_client: NostrClient | None = None,
+                 relays: list[str] | None = None, private_key: str | None = None, nwc_str: str | None = None):
         """Initialize the MCP client.
 
         Args:
@@ -37,8 +38,8 @@ class NostrMCPClient:
         """
         metadata = await self.client.get_metadata_for_pubkey(self.mcp_pubkey)
         tools = json.loads(metadata.about)
-        for tool in tools['tools']:
-            self.tool_to_sats_map[tool['name']] = tool['satoshis']
+        for tool in tools["tools"]:
+            self.tool_to_sats_map[tool["name"]] = tool["satoshis"]
         return tools
 
     async def call_tool(self, name: str, arguments: dict[str, Any], timeout: int = 60) -> dict[str, Any] | None:
@@ -53,25 +54,24 @@ class NostrMCPClient:
             Response dictionary from the server, or None if no response.
         """
         response = await self.client.send_direct_message_and_receive_response(self.mcp_pubkey, json.dumps({
-            'action': 'call_tool', 'tool_name': name, 'arguments': arguments
+            "action": "call_tool", "tool_name": name, "arguments": arguments,
         }), timeout=timeout)
 
         if response is None:
-            logger.warning('Tool call returned None')
+            logger.warning("Tool call returned None")
             return None
 
         message = response.message
         timestamp = int(time.time())
 
-        logger.debug(f'MCP Client received message: {message}')
-        if isinstance(message, str) and message.startswith('lnbc'):
+        logger.debug(f"MCP Client received message: {message}")
+        if isinstance(message, str) and message.startswith("lnbc"):
             invoice = message.strip()
-            logger.info(f'Paying invoice: {invoice}')
+            logger.info(f"Paying invoice: {invoice}")
             await self.client.nwc_relay.try_pay_invoice(invoice=invoice, amount=self.tool_to_sats_map[name])
-            response = await self.client.receive_direct_message(self.mcp_pubkey, timestamp=timestamp, timeout=timeout) 
+            response = await self.client.receive_direct_message(self.mcp_pubkey, timestamp=timestamp, timeout=timeout)
 
         if response:
-            logger.debug(f'MCP Client received response.message: {response.message}')
+            logger.debug(f"MCP Client received response.message: {response.message}")
             return json.loads(response.message)
         return None
-        

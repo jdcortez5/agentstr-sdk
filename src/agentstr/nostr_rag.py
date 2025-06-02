@@ -1,22 +1,23 @@
 import json
-from typing import List, Dict, Any
 
 from pynostr.event import Event
-from agentstr.nostr_client import NostrClient
+
 from agentstr.logger import get_logger
+from agentstr.nostr_client import NostrClient
+
 try:
     from langchain_community.embeddings import FakeEmbeddings
-    from langchain_core.vectorstores import InMemoryVectorStore
     from langchain_core.documents import Document
     from langchain_core.messages import HumanMessage
+    from langchain_core.vectorstores import InMemoryVectorStore
     from langchain_openai import ChatOpenAI
     langchain_installed = True
 except ImportError:
-    FakeEmbeddings = 'FakeEmbeddings'
-    InMemoryVectorStore = 'InMemoryVectorStore'
-    Document = 'Document'
-    HumanMessage = 'HumanMessage'
-    ChatOpenAI = 'ChatOpenAI'
+    FakeEmbeddings = "FakeEmbeddings"
+    InMemoryVectorStore = "InMemoryVectorStore"
+    Document = "Document"
+    HumanMessage = "HumanMessage"
+    ChatOpenAI = "ChatOpenAI"
     langchain_installed = False
 
 logger = get_logger(__name__)
@@ -24,14 +25,12 @@ logger = get_logger(__name__)
 
 class NostrRAG:
     """Retrieval-Augmented Generation (RAG) system for Nostr events.
-    
     Fetches Nostr events, builds a vector store knowledge base, and enables
     semantic search and question answering over the indexed content.
     """
-    def __init__(self, nostr_client: NostrClient = None, vector_store=None, relays: List[str] = None,
-                 private_key: str = None, nwc_str: str = None, embeddings=None, llm=None, llm_model_name=None, llm_base_url=None, llm_api_key=None):
+    def __init__(self, nostr_client: NostrClient | None = None, vector_store=None, relays: list[str] | None = None,
+                 private_key: str | None = None, nwc_str: str | None = None, embeddings=None, llm=None, llm_model_name=None, llm_base_url=None, llm_api_key=None):
         """Initialize the NostrRAG system.
-
         Args:
             nostr_client: An existing NostrClient instance (optional).
             vector_store: An existing vector store instance (optional).
@@ -54,13 +53,11 @@ class NostrRAG:
             raise ValueError("llm or llm_model_name must be provided")
         self.llm = llm or ChatOpenAI(model_name=llm_model_name, base_url=llm_base_url, api_key=llm_api_key, temperature=0)
 
-    async def _select_hashtags(self, question: str, previous_hashtags: List[str] = None) -> List[str]:
+    async def _select_hashtags(self, question: str, previous_hashtags: list[str] | None = None) -> list[str]:
         """Select relevant hashtags for the given question.
-
         Args:
             question: The user's question
             previous_hashtags: Previously used hashtags for this conversation
-
         Returns:
             List of relevant hashtags
         """
@@ -72,11 +69,11 @@ Use at most 5 hashtags.
 Question: {question}
 Previous hashtags: {history}
 """
-        
+
         history = json.dumps(previous_hashtags or [])
         prompt = template.format(question=question, history=history)
         response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-        
+
         try:
             hashtags = json.loads(response.content)
             return hashtags
@@ -86,56 +83,50 @@ Previous hashtags: {history}
             hashtags = []
             # Find hashtags in the text
             for word in text.split():
-                if word.startswith('#'):
+                if word.startswith("#"):
                     hashtags.append(word)
             return hashtags[:5]  # Return at most 5 hashtags
 
     def _process_event(self, event: Event) -> Document:
         """Process a Nostr event into a LangChain Document.
-
         Args:
             event: A Nostr event.
-
         Returns:
             Document: A LangChain Document with the event's content and ID.
         """
         content = event.content
         metadata = event.to_dict()
-        metadata.pop('content')
+        metadata.pop("content")
         return Document(page_content=content, id=event.id, metadata=metadata)
 
-    async def build_knowledge_base(self, question: str, limit: int = 10) -> List[dict]:
+    async def build_knowledge_base(self, question: str, limit: int = 10) -> list[dict]:
         """Build a knowledge base from Nostr events relevant to the question.
-
         Args:
             question: The user's question to guide hashtag selection
             limit: Maximum number of posts to retrieve
-
         Returns:
             List of retrieved events
         """
         # Select relevant hashtags for the question
         hashtags = await self._select_hashtags(question)
-        hashtags = [hashtag.lstrip('#') for hashtag in hashtags]
+        hashtags = [hashtag.lstrip("#") for hashtag in hashtags]
 
         logger.info(f"Selected hashtags: {hashtags}")
 
         # Fetch events for each hashtag
         events = await self.nostr_client.read_posts_by_tag(tags=hashtags, limit=limit)
-        
+
         # Process events into documents
         documents = [self._process_event(event) for event in events]
         self.vector_store.add_texts([doc.page_content for doc in documents])
 
         return events
 
-    async def retrieve(self, question: str, limit: int = 5) -> List[Document]:
+    async def retrieve(self, question: str, limit: int = 5) -> list[Document]:
         """Retrieve relevant documents from the knowledge base.
-
         Args:
             question: The user's question
             limit: Maximum number of documents to retrieve
-
         Returns:
             List of retrieved documents
         """
@@ -144,18 +135,16 @@ Previous hashtags: {history}
 
     async def query(self, question: str, limit: int = 5) -> str:
         """Ask a question using the knowledge base.
-
         Args:
             question: The user's question
             limit: Number of documents to retrieve for context
-
         Returns:
             The generated response
         """
 
         # Get relevant documents
         relevant_docs = await self.retrieve(question, limit)
-        
+
         # Generate response using the LLM
         template = """
 You are an expert assistant. Answer the following question based on the provided context.
@@ -166,11 +155,11 @@ Context:
 {context}
 
 Answer:"""
-        
+
         prompt = template.format(
             question=question,
-            context="\n\n".join([doc.page_content for doc in relevant_docs])
+            context="\n\n".join([doc.page_content for doc in relevant_docs]),
         )
-        
+
         response = await self.llm.ainvoke([HumanMessage(content=prompt)])
         return response.content

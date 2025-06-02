@@ -1,3 +1,3 @@
 cd docs/
-make html
+make clean html
 cd ../

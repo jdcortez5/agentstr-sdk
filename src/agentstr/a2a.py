@@ -1,6 +1,8 @@
 import json
-from typing import Any, Tuple, Optional
+from typing import Any
+
 from pydantic import BaseModel
+
 from agentstr.logger import get_logger
 
 logger = get_logger(__name__)
@@ -8,11 +10,9 @@ logger = get_logger(__name__)
 
 class Skill(BaseModel):
     """Represents a specific capability or service that an agent can perform.
-
     A Skill defines a discrete unit of functionality that an agent can provide to other
     agents or users. Skills are the building blocks of an agent's service offerings and
     can be priced individually to create a market for agent capabilities.
-
     Attributes:
         name (str): A unique identifier for the skill that should be descriptive and
             concise. This name is used for referencing the skill in agent interactions.
@@ -36,11 +36,9 @@ class Skill(BaseModel):
 
 class AgentCard(BaseModel):
     """Represents an agent's profile and capabilities in the Nostr network.
-
     An AgentCard is the public identity and capabilities card for an agent in the Nostr
     network. It contains essential information about the agent's services, pricing,
     and communication endpoints.
-
     Attributes:
         name (str): A human-readable name for the agent. This is the agent's display name.
         description (str): A detailed description of the agent's purpose, capabilities,
@@ -65,7 +63,6 @@ class AgentCard(BaseModel):
 
 class ChatInput(BaseModel):
     """Represents input data for an agent-to-agent chat interaction.
-
     Attributes:
         messages (list[str]): A list of messages in the conversation.
         thread_id (str, optional): The ID of the conversation thread. Defaults to None.
@@ -79,7 +76,6 @@ class ChatInput(BaseModel):
 
 class RouterResponse(BaseModel):
     """Response model for the agent router.
-    
     Attributes:
         can_handle: Whether the agent can handle the request
         cost_sats: Total cost in satoshis (0 if free or not applicable)
@@ -95,22 +91,16 @@ class RouterResponse(BaseModel):
 CHAT_HISTORY = {}  # Thread id -> [str]
 
 
-async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> Tuple[bool, int, Optional[str]]:
+async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
     """Determine if an agent can handle a user's request and calculate the cost.
-    
     This function uses an LLM to analyze whether the agent's skills match the user's request
     and returns the cost in satoshis if the agent can handle it.
-    
     Args:
         user_message: The user's request message.
         agent_card: The AgentCard containing the agent's skills and pricing.
         llm_callable: A callable that takes a prompt and returns an LLM response.
-        
     Returns:
-        Tuple[bool, int, Optional[str]]: 
-            - bool: Whether the agent can handle the request
-            - int: Cost in satoshis (0 if free or not applicable)
-            - Optional[str]: Explanation or reasoning for the decision
+        RouterResponse
     """
 
     # check history
@@ -130,10 +120,10 @@ Name: {agent_card.name}
 Description: {agent_card.description}
 
 Skills:"""
-    
+
     for skill in agent_card.skills:
         prompt += f"\n- {skill.name}: {skill.description}"
-    
+
     prompt += f"\n\nUser Request History: \n\n{user_message}\n\n"
     prompt += """
 Analyze if the agent can handle this request based on their skills and description and chat history.
@@ -155,24 +145,24 @@ Respond with a JSON object with these fields:
     "skills_used": [string]   # Names of skills being used, if any
 }
     """
-    logger.debug(f'Prompt: {prompt}')
+    logger.debug(f"Prompt: {prompt}")
     try:
         # Get the LLM response
         response = await llm_callable(prompt)
-        
+
         # Seek to first { and last }
-        response = response[response.find('{'):response.rfind('}')+1]
-        logger.debug(f'LLM response: {response}')
+        response = response[response.find("{"):response.rfind("}")+1]
+        logger.debug(f"LLM response: {response}")
 
         # Parse the response
         try:
             result = json.loads(response.strip())
-            can_handle = result.get('can_handle', False)
-            user_message = result.get('user_message', '')
-            
+            can_handle = result.get("can_handle", False)
+            user_message = result.get("user_message", "")
+
             # Get skills used
-            skills_used = result.get('skills_used', [])
-                
+            skills_used = result.get("skills_used", [])
+
             # Calculate total cost based on skills used
             cost = 0
             if can_handle:
@@ -190,36 +180,29 @@ Respond with a JSON object with these fields:
                 # Add base price to skill-based pricing
                 if agent_card.satoshis is not None:
                     cost += agent_card.satoshis
-                
-            logger.debug(f'Router response: {can_handle}, {cost}, {user_message}, {skills_used}')
-            return can_handle, cost, user_message, skills_used
-            
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f'Error parsing LLM response: {str(e)}')
-            return False, 0, f"Error parsing LLM response: {str(e)}", []
-            
-    except Exception as e:
-        logger.error(f'Error in agent routing: {str(e)}')
-        return False, 0, f"Error in agent routing: {str(e)}", []
-        
 
-async def agent_router_v2(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
-    """Improved version of agent_router with better structured response.
-    
-    Args:
-        user_message: The user's request message.
-        agent_card: The AgentCard containing the agent's skills and pricing.
-        llm_callable: A callable that takes a prompt and returns an LLM response.
-        thread_id: The ID of the conversation thread. Defaults to None.
-        
-    Returns:
-        RouterResponse: Contains the routing decision and details.
-    """
-    can_handle, cost, user_message, skills_used = await agent_router(user_message, agent_card, llm_callable, thread_id)
-    
-    return RouterResponse(
-        can_handle=can_handle,
-        cost_sats=cost,
-        user_message=user_message,
-        skills_used=skills_used
-    )
+            logger.debug(f"Router response: {can_handle}, {cost}, {user_message}, {skills_used}")
+            return RouterResponse(
+                can_handle=can_handle,
+                cost_sats=cost,
+                user_message=user_message,
+                skills_used=skills_used,
+            )
+
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Error parsing LLM response: {e!s}")
+            return RouterResponse(
+                can_handle=False,
+                cost_sats=0,
+                user_message=f"Error parsing LLM response: {e!s}",
+                skills_used=[],
+            )
+
+    except Exception as e:
+        logger.error(f"Error in agent routing: {e!s}")
+        return RouterResponse(
+            can_handle=False,
+            cost_sats=0,
+            user_message=f"Error in agent routing: {e!s}",
+            skills_used=[],
+        )

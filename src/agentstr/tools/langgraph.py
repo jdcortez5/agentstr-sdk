@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from mcp.types import (
@@ -7,6 +7,7 @@ from mcp.types import (
     ImageContent,
     TextContent,
 )
+
 from agentstr.nostr_mcp_client import NostrMCPClient
 
 NonTextContent = ImageContent | EmbeddedResource
@@ -36,14 +37,14 @@ def _convert_call_tool_result(
     return tool_content, non_text_contents or None
 
 
-async def to_langgraph_tools(nostr_mcp_client: NostrMCPClient) -> List[BaseTool]:
+async def to_langgraph_tools(nostr_mcp_client: NostrMCPClient) -> list[BaseTool]:
     """Convert tools from the MCP client to LangGraph tools."""
     # Load tools from this server
     tools = await nostr_mcp_client.list_tools()
     server_tools = []
 
     def call_tool(
-            tool_name: str
+            tool_name: str,
     ):
         async def inner(**arguments: dict[str, Any]):
             call_tool_result = await nostr_mcp_client.call_tool(tool_name, arguments)
@@ -52,15 +53,15 @@ async def to_langgraph_tools(nostr_mcp_client: NostrMCPClient) -> List[BaseTool]
             return result, None
         return inner
 
-    for tool in tools['tools']:
+    for tool in tools["tools"]:
         server_tools.append(
             StructuredTool(
-                name=tool['name'],
-                description=tool.get('description') or "",
-                metadata={'satoshis': tool.get('satoshis', 0)},
-                args_schema=tool['inputSchema'],
-                coroutine=call_tool(tool['name']),
+                name=tool["name"],
+                description=tool.get("description") or "",
+                metadata={"satoshis": tool.get("satoshis", 0)},
+                args_schema=tool["inputSchema"],
+                coroutine=call_tool(tool["name"]),
                 response_format="content_and_artifact",
-            )
+            ),
         )
     return server_tools
