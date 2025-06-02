@@ -35,6 +35,7 @@ To ensure full stack decentralization, we recommend using [Routstr](https://rout
 - **[Agno](https://docs.agno.com/introduction)**
 - **[DSPy](https://dspy.ai/)**
 - **[LangGraph](https://www.langchain.com/langgraph)**
+- **[Pydantic AI](https://ai.pydantic.dev/)**
 - **Bring Your Own Agent**
 
 ### MCP (Model Context Protocol) Support
