@@ -1,4 +1,4 @@
-Pydantic AI Integration
+PydanticAI Integration
 ====================
 
 .. automodule:: agentstr.mcp.pydantic
@@ -6,7 +6,7 @@ Pydantic AI Integration
    :undoc-members:
    :show-inheritance:
 
-This module provides integration with Pydantic AI tools, enabling conversion between MCP tools and Pydantic AI's tool format.
+This module provides integration with PydanticAI tools, enabling conversion between MCP tools and PydanticAI's tool format.
 
 Main Functions
 -------------
