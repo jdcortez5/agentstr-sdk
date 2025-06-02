@@ -77,18 +77,18 @@ Copy the [examples/.env.sample](examples/.env.sample) file to `examples/.env` an
 
 The [examples/](examples/) directory contains various implementation examples:
 
-- [dspy_agent.py](examples/dspy_agent.py): DSPy-powered agent with tool usage
-- [langgraph_agent.py](examples/langgraph_agent.py): Agent workflow with LangGraph
-- [agno_agent.py](examples/agno_agent.py): Simple agent implementation
-- [dm_agents.py](examples/dm_agents.py): Direct message handling between agents
-- [mcp_server.py](examples/mcp_server.py): MCP server implementation (lightning-enabled)
-- [mcp_client.py](examples/mcp_client.py): MCP client example (lightning-enabled)
+- [nostr_dspy_agent.py](examples/nostr_dspy_agent.py): A DSPy agent connected to Nostr MCP
+- [nostr_langgraph_agent.py](examples/nostr_langgraph_agent.py): A LangGraph agent connected to Nostr MCP
+- [nostr_agno_agent.py](examples/nostr_agno_agent.py): An Agno agent connected to Nostr MCP
+- [mcp_server.py](examples/mcp_server.py): Nostr MCP server implementation
+- [mcp_client.py](examples/mcp_client.py): Nostr MCP client example
+- [chat_with_agents.py](examples/chat_with_agents.py): Send a direct message to an agent
 - [tool_discovery.py](examples/tool_discovery.py): Tool discovery and usage
 - [rag.py](examples/rag.py): Retrieval-augmented generation example
 
 To run an example:
 ```bash
-uv run examples/dspy_agent.py
+uv run examples/nostr_dspy_agent.py
 ```
 
 ### Security Notes

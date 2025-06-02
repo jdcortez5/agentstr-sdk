@@ -6,10 +6,9 @@ import os
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
-from agno.tools.reasoning import ReasoningTools
 
 from agentstr import ChatInput, NostrAgentServer, NostrMCPClient
-from agentstr.tools.agno import to_agno_tools
+from agentstr.mcp.agno import to_agno_tools
 
 # Get the environment variables
 relays = os.getenv("NOSTR_RELAYS").split(",")

@@ -20,22 +20,35 @@ logger = get_logger(__name__)
 
 
 class DecryptedMessage(BaseModel):
-    """A decrypted message from a Nostr relay."""
+    """A decrypted message from a Nostr relay.
+    
+    Attributes:
+        event: The Nostr event containing the message.
+        message: The decrypted message content.
+    """
     event: Event
     message: str
 
 
 def create_subscription(filters: Filters) -> list[str]:
-    """Create a subscription for the given filters."""
+    """Create a subscription for the given filters.
+    
+    Args:
+        filters: The filters to apply to the subscription.
+        
+    Returns:
+        A list containing the subscription request components.
+    """
     return ["REQ", uuid.uuid4().hex, filters.to_dict()]
 
 
 class EventRelay:
     """Handles communication with a single Nostr relay.
+    
     Args:
-        relay: WebSocket URL of the Nostr relay
-        private_key: Private key for signing events
-        public_key: Optional public key (derived from private_key if not provided)
+        relay: WebSocket URL of the Nostr relay.
+        private_key: Private key for signing events.
+        public_key: Optional public key (derived from private_key if not provided).
     """
     def __init__(self, relay: str, private_key: PrivateKey | None = None, public_key: PublicKey | None = None):
         self.relay = relay
@@ -45,7 +58,18 @@ class EventRelay:
 
     async def get_events(self, filters: Filters, limit: int = 10, timeout: int = 30, close_on_eose: bool = True) -> list[Event]:
         """Fetch events matching the given filters from this relay.
-        Returns up to `limit` events that match the filters, or times out after `timeout` seconds.
+        
+        Args:
+            filters: The filters to apply when fetching events.
+            limit: Maximum number of events to return. Defaults to 10.
+            timeout: Maximum time to wait for events in seconds. Defaults to 30.
+            close_on_eose: Whether to close the subscription after EOSE. Defaults to True.
+            
+        Returns:
+            A list of up to `limit` events that match the filters, or an empty list if none found.
+            
+        Note:
+            Times out after `timeout` seconds if no matching events are found.
         """
         limit = filters.limit if filters.limit else limit
         subscription = create_subscription(filters)

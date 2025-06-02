@@ -25,12 +25,14 @@ logger = get_logger(__name__)
 
 class NostrRAG:
     """Retrieval-Augmented Generation (RAG) system for Nostr events.
-    Fetches Nostr events, builds a vector store knowledge base, and enables
+    
+    This class fetches Nostr events, builds a vector store knowledge base, and enables
     semantic search and question answering over the indexed content.
     """
     def __init__(self, nostr_client: NostrClient | None = None, vector_store=None, relays: list[str] | None = None,
                  private_key: str | None = None, nwc_str: str | None = None, embeddings=None, llm=None, llm_model_name=None, llm_base_url=None, llm_api_key=None):
         """Initialize the NostrRAG system.
+        
         Args:
             nostr_client: An existing NostrClient instance (optional).
             vector_store: An existing vector store instance (optional).
@@ -42,6 +44,9 @@ class NostrRAG:
             llm_model_name: Name of the language model to use (optional).
             llm_base_url: Base URL for the language model (optional).
             llm_api_key: API key for the language model (optional).
+            
+        Raises:
+            ImportError: If LangChain is not installed.
         """
         if not langchain_installed:
             logger.error("Langchain not found. Please install it to use NostrRAG. `pip install agentstr-sdk[rag]`")
@@ -55,9 +60,11 @@ class NostrRAG:
 
     async def _select_hashtags(self, question: str, previous_hashtags: list[str] | None = None) -> list[str]:
         """Select relevant hashtags for the given question.
+
         Args:
             question: The user's question
             previous_hashtags: Previously used hashtags for this conversation
+
         Returns:
             List of relevant hashtags
         """
@@ -101,9 +108,11 @@ Previous hashtags: {history}
 
     async def build_knowledge_base(self, question: str, limit: int = 10) -> list[dict]:
         """Build a knowledge base from Nostr events relevant to the question.
+
         Args:
             question: The user's question to guide hashtag selection
             limit: Maximum number of posts to retrieve
+
         Returns:
             List of retrieved events
         """
@@ -124,9 +133,11 @@ Previous hashtags: {history}
 
     async def retrieve(self, question: str, limit: int = 5) -> list[Document]:
         """Retrieve relevant documents from the knowledge base.
+
         Args:
             question: The user's question
             limit: Maximum number of documents to retrieve
+
         Returns:
             List of retrieved documents
         """
@@ -135,9 +146,11 @@ Previous hashtags: {history}
 
     async def query(self, question: str, limit: int = 5) -> str:
         """Ask a question using the knowledge base.
+
         Args:
             question: The user's question
             limit: Number of documents to retrieve for context
+
         Returns:
             The generated response
         """

@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 
 class NoteFilters(BaseModel):
     """Filters for filtering Nostr notes/events.
+
     Attributes:
         nostr_pubkeys: Filter by specific public keys
         nostr_tags: Filter by specific tags
@@ -26,6 +27,7 @@ class NoteFilters(BaseModel):
 
 class NostrAgentServer:
     """Server that integrates an external agent with the Nostr network.
+
     Handles direct messages and optional payments, routing them to an external agent.
     """
     def __init__(self,
@@ -38,6 +40,7 @@ class NostrAgentServer:
                  note_filters: NoteFilters | None = None,
                  router_llm: Any | None = None):
         """Initialize the agent server.
+
         Args:
             nostr_client: Existing NostrClient instance (optional).
             relays: List of Nostr relay URLs (if no client provided).
@@ -56,9 +59,11 @@ class NostrAgentServer:
 
     async def chat(self, message: str, thread_id: str | None = None) -> Any:
         """Send a message to the agent and retrieve the response.
+
         Args:
             message: The message to send to the agent.
             thread_id: Optional thread ID for conversation context.
+
         Returns:
             Response from the agent, or an error message.
         """
@@ -105,6 +110,7 @@ Only use the following tools: [{skills_used}]
 
     async def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages for agent interaction.
+
         Args:
             event: The Nostr event containing the message.
             message: The message content.
@@ -154,6 +160,7 @@ Only use the following tools: [{skills_used}]
 
     async def _note_callback(self, event: Event):
         """Handle incoming notes that match the filters.
+
         Args:
             event: The Nostr event containing the note.
         """

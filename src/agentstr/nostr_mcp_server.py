@@ -15,12 +15,14 @@ logger = get_logger(__name__)
 
 class NostrMCPServer:
     """Model Context Protocol (MCP) server running on the Nostr protocol.
+
     Registers and manages tools that can be called by clients via direct messages,
     with optional payment requirements handled through NWC.
     """
     def __init__(self, display_name: str, nostr_client: NostrClient | None = None,
                  relays: list[str] | None = None, private_key: str | None = None, nwc_str: str | None = None):
         """Initialize the MCP server.
+
         Args:
             display_name: Display name of the server.
             nostr_client: Existing NostrClient instance (optional).
@@ -36,6 +38,7 @@ class NostrMCPServer:
     def add_tool(self, fn: Callable[..., Any], name: str | None = None,
                  description: str | None = None, satoshis: int | None = None):
         """Register a tool with the server.
+
         Args:
             fn: The function to register as a tool.
             name: Name of the tool (defaults to function name).
@@ -48,6 +51,7 @@ class NostrMCPServer:
 
     async def list_tools(self) -> dict[str, Any]:
         """List all registered tools and their metadata.
+
         Returns:
             Dictionary containing a list of tools with their names, descriptions,
             input schemas, and required satoshis.
@@ -63,11 +67,14 @@ class NostrMCPServer:
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         """Execute a registered tool by name with provided arguments.
+
         Args:
             name: Name of the tool to call.
             arguments: Dictionary of arguments for the tool.
+
         Returns:
             Result of the tool execution.
+
         Raises:
             ToolError: If the tool is not found.
         """
@@ -78,6 +85,7 @@ class NostrMCPServer:
 
     async def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages to process tool calls or list requests.
+
         Args:
             event: The Nostr event containing the message.
             message: The message content.

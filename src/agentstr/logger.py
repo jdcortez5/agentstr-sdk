@@ -58,10 +58,11 @@ class Logger:
 
 # Create a default logger instance
 def get_logger(name: str | None = None) -> logging.Logger:
-    """
-    Get a logger instance with the given name.
+    """Get a logger instance with the given name.
+
     Args:
         name: The name of the logger. If None, uses the module's name.
+
     Returns:
         A configured logging.Logger instance.
     """

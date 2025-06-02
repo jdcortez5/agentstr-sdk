@@ -8,7 +8,7 @@ import os
 import dspy
 
 from agentstr import NostrAgentServer, NostrMCPClient, ChatInput
-from agentstr.tools.dspy import to_dspy_tools
+from agentstr.mcp.dspy import to_dspy_tools
 
 # Get the environment variables
 relays = os.getenv("NOSTR_RELAYS").split(",")
@@ -45,9 +45,12 @@ async def agent_server():
     async def agent_callable(chat_input: ChatInput) -> str:
         return (await react.acall(question=chat_input.messages[-1])).answer
 
+    # Create Nostr Agent Server
     server = NostrAgentServer(relays=relays,
                               private_key=private_key,
                               agent_callable=agent_callable)
+
+    # Start server
     await server.start()
 
 

@@ -16,14 +16,32 @@ logger = get_logger(__name__)
 
 
 def encrypt(privkey: str, pubkey: str, plaintext: str) -> str:
-    """Encrypt plaintext using ECDH shared secret."""
+    """Encrypt plaintext using ECDH shared secret.
+    
+    Args:
+        privkey: Sender's private key.
+        pubkey: Recipient's public key.
+        plaintext: The message to encrypt.
+        
+    Returns:
+        The encrypted message as a string.
+    """
     dm = EncryptedDirectMessage()
     dm.encrypt(privkey, cleartext_content=plaintext, recipient_pubkey=pubkey)
     return dm.encrypted_message
 
 
 def decrypt(privkey: str, pubkey: str, ciphertext: str) -> str:
-    """Decrypt ciphertext using ECDH shared secret."""
+    """Decrypt ciphertext using ECDH shared secret.
+    
+    Args:
+        privkey: Recipient's private key.
+        pubkey: Sender's public key.
+        ciphertext: The encrypted message to decrypt.
+        
+    Returns:
+        The decrypted plaintext message.
+    """
     dm = EncryptedDirectMessage()
     dm.decrypt(privkey, encrypted_message=ciphertext, public_key_hex=pubkey)
     return dm.cleartext_content
@@ -31,8 +49,15 @@ def decrypt(privkey: str, pubkey: str, ciphertext: str) -> str:
 
 def process_nwc_string(string: str) -> dict:
     """Parse Nostr Wallet Connect connection string into its components.
+    
+    Args:
+        string: The NWC connection string to parse.
+        
     Returns:
-        Dictionary containing connection parameters
+        Dictionary containing connection parameters.
+        
+    Raises:
+        ValueError: If the connection string is invalid.
     """
     if (string[0:22] != "nostr+walletconnect://"):
         logger.error("Your pairing string was invalid, try one that starts with this: nostr+walletconnect://")
@@ -60,19 +85,29 @@ def process_nwc_string(string: str) -> dict:
     return obj
 
 
-def get_signed_event(event: dict, private_key: str) -> Event:
-    """Create and sign a Nostr event with the given private key."""
-    event = Event(**event)
+def get_signed_event(event: dict, private_key: str):
+    """Create and sign a Nostr event with the given private key.
+
+    Args:
+        event: The event data as a dictionary.
+        private_key: The private key to sign the event with.
+
+    Returns:
+        A signed Nostr event.
+    """
+    event = Event.from_dict(event)
     event.sign(private_key)
     return event
 
 
 class NWCRelay:
     """Client for interacting with Nostr Wallet Connect (NWC) relays.
+
     Handles encrypted communication with wallet services over the Nostr network.
     """
     def __init__(self, nwc_connection_string: str, relay: str | None = None):
         """Initialize NWC client with connection string and optional relay URL.
+
         Args:
             nwc_connection_string: NWC connection string (starts with 'nostr+walletconnect://')
             relay: Optional relay URL override
@@ -106,6 +141,7 @@ class NWCRelay:
 
     async def make_invoice(self, amount: int, description: str) -> Event | None:
         """Generate a new payment request.
+
         Returns:
             Dictionary containing invoice details
         """
@@ -172,6 +208,7 @@ class NWCRelay:
 
     async def did_payment_succeed(self, invoice: str) -> bool:
         """Check if a payment was successful.
+
         Returns:
             True if payment was successful, False otherwise
         """
@@ -288,16 +325,18 @@ class NWCRelay:
         return dobj.get("result", {}).get("balance")
 
     async def on_payment_success(self, invoice: str, callback=None, unsuccess_callback=None, timeout: int = 300, interval: int = 2):
-        """
-        Listen for payment success for a given invoice.
+        """Listen for payment success for a given invoice.
+
         This method continuously checks for payment success until either the payment
         is confirmed or the timeout is reached.
+
         Args:
             invoice (str): The BOLT11 invoice string to listen for.
             callback (callable, optional): A function to call when payment succeeds.
             unsuccess_callback (callable, optional): A function to call if payment fails.
             timeout (int, optional): Maximum time to wait in seconds (default: 300).
             interval (int, optional): Time between checks in seconds (default: 2).
+
         Raises:
             Exception: If the callback function raises an exception.
         """

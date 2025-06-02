@@ -7,7 +7,14 @@ from agentstr.nostr_mcp_client import NostrMCPClient
 
 
 async def to_agno_tools(nostr_mcp_client: NostrMCPClient) -> list[Function]:
-    """Convert tools from the MCP client to Agno tools."""
+    """Convert tools from the MCP client to Agno tools.
+    
+    Args:
+        nostr_mcp_client: An instance of NostrMCPClient to fetch tools from.
+        
+    Returns:
+        A list of Agno Function objects that wrap the MCP tools.
+    """
     tools = await nostr_mcp_client.list_tools()
 
     def call_tool(

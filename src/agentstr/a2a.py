@@ -10,9 +10,11 @@ logger = get_logger(__name__)
 
 class Skill(BaseModel):
     """Represents a specific capability or service that an agent can perform.
+
     A Skill defines a discrete unit of functionality that an agent can provide to other
     agents or users. Skills are the building blocks of an agent's service offerings and
     can be priced individually to create a market for agent capabilities.
+
     Attributes:
         name (str): A unique identifier for the skill that should be descriptive and
             concise. This name is used for referencing the skill in agent interactions.
@@ -36,9 +38,11 @@ class Skill(BaseModel):
 
 class AgentCard(BaseModel):
     """Represents an agent's profile and capabilities in the Nostr network.
+
     An AgentCard is the public identity and capabilities card for an agent in the Nostr
     network. It contains essential information about the agent's services, pricing,
     and communication endpoints.
+
     Attributes:
         name (str): A human-readable name for the agent. This is the agent's display name.
         description (str): A detailed description of the agent's purpose, capabilities,
@@ -93,12 +97,15 @@ CHAT_HISTORY = {}  # Thread id -> [str]
 
 async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
     """Determine if an agent can handle a user's request and calculate the cost.
+
     This function uses an LLM to analyze whether the agent's skills match the user's request
     and returns the cost in satoshis if the agent can handle it.
+
     Args:
         user_message: The user's request message.
         agent_card: The AgentCard containing the agent's skills and pricing.
         llm_callable: A callable that takes a prompt and returns an LLM response.
+
     Returns:
         RouterResponse
     """

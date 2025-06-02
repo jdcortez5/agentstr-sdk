@@ -18,16 +18,21 @@ logger = get_logger(__name__)
 
 class NostrClient:
     """A client for interacting with the Nostr protocol, handling events, direct messages, and metadata.
+    
     This class provides methods to connect to Nostr relays, send and receive direct messages,
     manage metadata, and read posts by tags. It integrates with Nostr Wallet Connect (NWC)
     for payment processing if provided.
     """
     def __init__(self, relays: list[str], private_key: str | None = None, nwc_str: str | None = None):
         """Initialize the NostrClient.
+        
         Args:
             relays: List of Nostr relay URLs to connect to.
             private_key: Nostr private key in 'nsec' format.
             nwc_str: Nostr Wallet Connect string for payment processing (optional).
+            
+        Note:
+            If no private key is provided, the client will operate in read-only mode.
         """
         logger.info("Initializing NostrClient")
         try:
@@ -64,8 +69,10 @@ class NostrClient:
 
     def sign(self, event: Event) -> Event:
         """Sign an event with the client's private key.
+
         Args:
             event: The Nostr event to sign.
+
         Returns:
             The signed event.
         """
@@ -74,9 +81,11 @@ class NostrClient:
 
     async def read_posts_by_tag(self, tag: str | None = None, tags: list[str] | None = None, limit: int = 10) -> list[Event]:
         """Read posts containing a specific tag from Nostr relays.
+
         Args:
             tag: The tag to filter posts by.
             limit: Maximum number of posts to retrieve.
+
         Returns:
             List of Events.
         """
@@ -100,6 +109,7 @@ class NostrClient:
                        lud06: str | None = None, username: str | None = None,
                        display_name: str | None = None, website: str | None = None):
         """Update the client's metadata on Nostr relays.
+
         Args:
             name: Nostr name.
             about: Description or bio.
@@ -146,10 +156,12 @@ class NostrClient:
 
     async def send_direct_message(self, recipient_pubkey: str, message: str, event_ref: str | None = None) -> Event:
         """Send an encrypted direct message to a recipient.
+
         Args:
             recipient_pubkey: The recipient's public key in hex or bech32 format.
             message: The message content to send.
             event_ref: Optional event ID to reference in the message.
+
         Returns:
             The sent event.
         """
@@ -181,6 +193,7 @@ class NostrClient:
 
     async def send_direct_message_and_receive_response(self, recipient_pubkey: str, message: str, timeout: int = 60, event_ref: str | None = None) -> DecryptedMessage:
         """Send an encrypted direct message to a recipient and wait for a response.
+
         Args:
             recipient_pubkey: The recipient's public key.
             message: The message content (string or dict, which will be JSON-encoded).
@@ -190,6 +203,7 @@ class NostrClient:
     async def note_listener(self, callback: Callable[[Event], Any], pubkeys: list[str] | None = None,
                      tags: list[str] | None = None, following_only: bool = False, timestamp: int | None = None):
         """Listen for public notes matching the given filters.
+
         Args:
             callback: Function to handle received notes (takes Event as argument).
             pubkeys: List of pubkeys to filter notes from (hex or bech32 format).
@@ -212,11 +226,11 @@ class NostrClient:
 
     async def direct_message_listener(self, callback: Callable[[Event, str], Any], recipient_pubkey: str | None = None, timestamp: int | None = None):
         """Listen for incoming encrypted direct messages.
+
         Args:
             callback: Function to handle received messages (takes Event and message content as args).
             recipient_pubkey: Filter messages from a specific public key (optional).
             timestamp: Filter messages since this timestamp (optional).
-            close_after_first_message: Close subscription after receiving the first message.
         """
         authors = [get_public_key(recipient_pubkey).hex()] if recipient_pubkey else None
         filters = Filters(authors=authors, kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE],

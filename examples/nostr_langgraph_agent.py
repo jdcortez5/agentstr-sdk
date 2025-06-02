@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 
 from agentstr import NostrAgentServer, NostrMCPClient, ChatInput
-from agentstr.tools.langgraph import to_langgraph_tools
+from agentstr.mcp.langgraph import to_langgraph_tools
 
 
 # Get the environment variables

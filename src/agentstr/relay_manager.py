@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 
 class RelayManager:
     """Manages connections to multiple Nostr relays and handles message passing.
+    
     Args:
         relays: List of relay URLs to connect to.
         private_key: Optional private key for signing events.
@@ -28,12 +29,28 @@ class RelayManager:
         self.public_key = self.private_key.public_key if self.private_key else None
 
     @property
-    def relays(self):
+    def relays(self) -> list[EventRelay]:
+        """Get a list of connected EventRelay instances.
+        
+        Returns:
+            A list of EventRelay instances, one for each relay URL.
+        """
         return [EventRelay(relay, self.private_key, self.public_key) for relay in self._relays]
 
     async def get_events(self, filters: Filters, limit: int = 10, timeout: int = 30, close_on_eose: bool = True) -> list[Event]:
         """Fetch events matching the given filters from connected relays.
-        Returns up to `limit` unique events, stopping early if possible.
+        
+        Args:
+            filters: The filters to apply when fetching events.
+            limit: Maximum number of events to return. Defaults to 10.
+            timeout: Maximum time to wait for events in seconds. Defaults to 30.
+            close_on_eose: Whether to close the subscription after EOSE. Defaults to True.
+            
+        Returns:
+            A list of up to `limit` unique events that match the filters.
+            
+        Note:
+            Stops early if enough events are found before the timeout.
         """
         limit = filters.limit if filters.limit else limit
         event_id_map = {}
@@ -155,6 +172,7 @@ class RelayManager:
 
     async def send_receive_message(self, message: str | dict, recipient_pubkey: str, timeout: int = 3, event_ref: str | None = None) -> DecryptedMessage | None:
         """Send a message and wait for a response from the recipient.
+
         Returns the first response received within the timeout period.
         """
         dm_event = await self.send_message(message, recipient_pubkey, event_ref)
@@ -164,6 +182,7 @@ class RelayManager:
 
     async def event_listener(self, filters: Filters, callback: Callable[[Event], None]):
         """Start listening for events matching the given filters.
+
         The callback will be called for each matching event.
         """
         event_cache = ExpiringDict(max_len=1000, max_age_seconds=300)
@@ -175,6 +194,7 @@ class RelayManager:
 
     async def direct_message_listener(self, filters: Filters, callback: Callable[[Event, str], None]):
         """Start listening for direct messages.
+
         The callback will be called with each received message and its decrypted content.
         """
         event_cache = ExpiringDict(max_len=1000, max_age_seconds=300)
