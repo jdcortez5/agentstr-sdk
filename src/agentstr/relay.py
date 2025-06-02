@@ -24,6 +24,11 @@ class DecryptedMessage(BaseModel):
     message: str
 
 
+def create_subscription(filters: Filters) -> List[str]:
+    """Create a subscription for the given filters."""
+    return ["REQ", uuid.uuid4().hex, filters.to_dict()]
+
+
 class EventRelay(object):
     """Handles communication with a single Nostr relay.
     
@@ -44,8 +49,7 @@ class EventRelay(object):
         Returns up to `limit` events that match the filters, or times out after `timeout` seconds.
         """
         limit = filters.limit if filters.limit else limit
-        sid = uuid.uuid4().hex
-        subscription = ["REQ", sid, filters.to_dict()]
+        subscription = create_subscription(filters)
         events = []
         t0 = time.time()
         time_remaining = timeout
@@ -141,9 +145,9 @@ class EventRelay(object):
 
     async def event_listener(self, filters: Filters, callback: Callable[[Event], None], event_cache: ExpiringDict, lock: asyncio.Lock):
         """Continuously listen for events matching filters and call the callback for each one."""
-        sid = uuid.uuid4().hex
-        subscription = ["REQ", sid, filters.to_dict()]
+        subscription = create_subscription(filters)
         logger.debug(f'Sending note subscription: {json.dumps(subscription)}')
+        latest_timestamp = filters.since or get_timestamp()
         while True:
             async with connect(self.relay) as ws:
                 try:
@@ -154,6 +158,7 @@ class EventRelay(object):
                         if (len(response) > 2):
                             event = Event.from_dict(response[2])
                             logger.debug(f'Checking lock with event id: {event.id}')
+                            latest_timestamp = event.created_at
                             async with lock:
                                 if event.id in event_cache:
                                     continue
@@ -166,13 +171,16 @@ class EventRelay(object):
                         await asyncio.sleep(0)
                 except ConnectionClosedError:
                     logger.warning('Connection closed in event_listener. Reconnecting now...')
+                    filters.since = latest_timestamp + 1
+                    subscription = create_subscription(filters)
+                    logger.debug(f'Sending event subscription: {json.dumps(subscription)}')
                     await asyncio.sleep(0)
     
     async def direct_message_listener(self, filters: Filters, callback: Callable[[Event, str], None], event_cache: ExpiringDict, lock: asyncio.Lock):
         """Listen for direct messages and call the callback with decrypted content."""
-        sid = uuid.uuid4().hex
-        subscription = ["REQ", sid, filters.to_dict()]
+        subscription = create_subscription(filters)
         logger.debug(f'Sending DM subscription: {json.dumps(subscription)}')
+        latest_timestamp = filters.since or get_timestamp()
         while True:
             async with connect(self.relay) as ws:
                 try:
@@ -184,6 +192,7 @@ class EventRelay(object):
                             logger.debug(f"Received message in direct_message_listener: {response[2]}")
                             event = Event.from_dict(response[2])
                             logger.debug(f'Checking lock with event id: {event.id}')
+                            latest_timestamp = event.created_at
                             async with lock:
                                 if event.id in event_cache:
                                     continue
@@ -198,4 +207,7 @@ class EventRelay(object):
                         await asyncio.sleep(0)
                 except ConnectionClosedError:
                     logger.warning('Connection closed in direct_message_listener. Reconnecting now...')
+                    filters.since = latest_timestamp + 1
+                    subscription = create_subscription(filters)
+                    logger.debug(f'Sending DM subscription: {json.dumps(subscription)}')
                     await asyncio.sleep(0)
