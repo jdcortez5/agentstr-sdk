@@ -27,6 +27,7 @@ async def search_wikipedia(query: str) -> list[str]:
     return [x['text'] for x in results]
 
 
+# Create ReAct agent
 react = dspy.ReAct("question -> answer: float", tools=[divide_by, search_wikipedia])
 
 

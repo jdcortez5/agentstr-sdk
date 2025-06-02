@@ -1,11 +1,10 @@
-import json
-from pynostr.key import PrivateKey
-from agentstr import NostrClient
 from dotenv import load_dotenv
-import os
-
 load_dotenv()
-print(PrivateKey().bech32())
+
+import os
+import json
+from agentstr import NostrClient
+
 # Define relays
 relays = os.getenv('NOSTR_RELAYS').split(',')
 

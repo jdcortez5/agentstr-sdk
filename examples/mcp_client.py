@@ -10,7 +10,9 @@ from agentstr import PrivateKey, NostrMCPClient
 # Define relays and private key
 relays   = os.getenv('NOSTR_RELAYS').split(',')
 private_key = os.getenv('EXAMPLE_MCP_CLIENT_NSEC')
-nwc_str = os.getenv('TEST_NWC_CONN_STR2')
+
+# To enable Nostr Wallet Connect
+nwc_str = os.getenv('MCP_CLIENT_NWC_CONN_STR')
 
 # Define MCP server public key
 server_public_key = PrivateKey.from_nsec(os.getenv('EXAMPLE_MCP_SERVER_NSEC')).public_key.bech32()

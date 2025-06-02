@@ -12,6 +12,7 @@ from agentstr import ChatInput, NostrAgentServer
 relays = os.getenv('NOSTR_RELAYS').split(',')
 private_key = os.getenv('EXAMPLE_LANGGRAPH_AGENT_NSEC')
 
+# Define LLM
 model = ChatOpenAI(temperature=0,
                    base_url=os.getenv('LLM_BASE_URL'),
                    api_key=os.getenv('LLM_API_KEY'),
@@ -23,7 +24,7 @@ async def get_weather(city: str) -> str:
     """Get weather for a given city."""
     return f"It's always sunny in {city}!"
 
-
+# Create react agent
 agent = create_react_agent(
     model=model,
     tools=[get_weather],  

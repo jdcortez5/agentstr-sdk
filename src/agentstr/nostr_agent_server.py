@@ -36,7 +36,7 @@ class NostrAgentServer:
                  agent_callable: Callable[[ChatInput], str] = None,
                  note_filters: NoteFilters = None, 
                  router_llm: Any = None):
-        """Initialize the agent server. If agent_info and agent_callable are provided, agent_url, chat_url_path, and info_url_path are ignored.
+        """Initialize the agent server.
 
         Args:
             nostr_client: Existing NostrClient instance (optional).
