@@ -1,3 +1,4 @@
+from functools import partial
 import json
 import time
 from typing import Any, List
@@ -73,4 +74,4 @@ class NostrMCPClient:
             logger.debug(f'MCP Client received response.message: {response.message}')
             return json.loads(response.message)
         return None
-
+        
