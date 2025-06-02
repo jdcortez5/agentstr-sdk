@@ -1,10 +1,10 @@
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
 import os
 from agentstr import NostrRAG
+from langchain_openai import ChatOpenAI
 
 # Define relays
 relays   = os.getenv('NOSTR_RELAYS').split(',')
@@ -19,6 +19,7 @@ model = ChatOpenAI(temperature=0,
 rag = NostrRAG(relays=relays,
                llm=model)
 
+# Run a RAG query
 async def run():
     result = await rag.query(question="What's new with Bitcoin?")
     print(result)

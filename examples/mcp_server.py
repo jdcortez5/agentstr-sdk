@@ -8,7 +8,9 @@ from agentstr import NostrMCPServer
 # Define relays and private key
 relays   = os.getenv('NOSTR_RELAYS').split(',')
 private_key = os.getenv('EXAMPLE_MCP_SERVER_NSEC')
-nwc_str = os.getenv('TEST_NWC_CONN_STR')
+
+# To enable Nostr Wallet Connect
+nwc_str = os.getenv('MCP_SERVER_NWC_CONN_STR')
 
 # Define tools
 async def add(a: int, b: int) -> int:
@@ -21,15 +23,16 @@ async def multiply(a: int, b: int) -> int:
 
 async def run():
     # Define the server
-    server = NostrMCPServer("Math MCP Server", relays=relays,
-                            private_key=private_key, nwc_str=nwc_str)
+    server = NostrMCPServer(
+        "Math MCP Server", 
+        relays=relays,
+        private_key=private_key,
+        nwc_str=nwc_str
+    )
 
     # Add tools
-    server.add_tool(add, satoshis=0)
-    server.add_tool(multiply, 
-                    name="multiply", 
-                    description="Multiply two numbers", 
-                    satoshis=3)
+    server.add_tool(add) # Free tool
+    server.add_tool(multiply, satoshis=3) # Premium tool
 
     # Start the server
     await server.start()
