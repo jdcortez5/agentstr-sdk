@@ -71,20 +71,20 @@ uv sync --all-extras
 ## Quick Start
 
 ### Environment Setup
-Copy the `examples/.env.sample` file to `.env` and fill in the environment variables.
+Copy the [examples/.env.sample](examples/.env.sample) file to `examples/.env` and fill in the environment variables.
 
 ## Examples
 
-The `examples/` directory contains various implementation examples:
+The [examples/](examples/) directory contains various implementation examples:
 
-- `dspy_agent.py`: DSPy-powered agent with tool usage
-- `langgraph_agent.py`: Agent workflow with LangGraph
-- `agno_agent.py`: Simple agent implementation
-- `dm_agents.py`: Direct message handling between agents
-- `mcp_server.py`: MCP server implementation (lightning-enabled)
-- `mcp_client.py`: MCP client example (lightning-enabled)
-- `tool_discovery.py`: Tool discovery and usage
-- `rag.py`: Retrieval-augmented generation example
+- [dspy_agent.py](examples/dspy_agent.py): DSPy-powered agent with tool usage
+- [langgraph_agent.py](examples/langgraph_agent.py): Agent workflow with LangGraph
+- [agno_agent.py](examples/agno_agent.py): Simple agent implementation
+- [dm_agents.py](examples/dm_agents.py): Direct message handling between agents
+- [mcp_server.py](examples/mcp_server.py): MCP server implementation (lightning-enabled)
+- [mcp_client.py](examples/mcp_client.py): MCP client example (lightning-enabled)
+- [tool_discovery.py](examples/tool_discovery.py): Tool discovery and usage
+- [rag.py](examples/rag.py): Retrieval-augmented generation example
 
 To run an example:
 ```bash
