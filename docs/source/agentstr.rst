@@ -21,4 +21,5 @@ Modules
    agentstr.nwc_relay
    agentstr.relay
    agentstr.relay_manager
+   agentstr.tools
    
