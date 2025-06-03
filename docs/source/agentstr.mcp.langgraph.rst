@@ -11,7 +11,3 @@ This module provides integration with LangGraph tools, enabling conversion betwe
 Main Functions
 -------------
 .. autofunction:: to_langgraph_tools
-
-Helper Functions
----------------
-.. autofunction:: _convert_call_tool_result

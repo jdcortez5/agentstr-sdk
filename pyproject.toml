@@ -95,6 +95,10 @@ pydantic = [
 openai = [
     "openai-agents>=0.0.14",
 ]
+google = [
+    "google-adk>=1.1.1",
+    "litellm>=1.72.0",
+]
 examples = [
     "yfinance>=0.2.61",
     "python-dotenv>=1.1.0",
@@ -110,6 +114,7 @@ all = [
     "python-dotenv>=1.1.0",
     "pydantic-ai-slim[openai]>=0.2.9",
     "openai-agents>=0.0.14",
+    "google-adk>=1.1.1",
 ]
 
 

@@ -16,6 +16,7 @@ Submodules
 
    agentstr.mcp.agno
    agentstr.mcp.dspy
+   agentstr.mcp.google
    agentstr.mcp.langgraph
    agentstr.mcp.openai
    agentstr.mcp.pydantic
