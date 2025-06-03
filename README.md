@@ -36,6 +36,8 @@ To ensure full stack decentralization, we recommend using [Routstr](https://rout
 - **[DSPy](https://dspy.ai/)**
 - **[LangGraph](https://www.langchain.com/langgraph)**
 - **[PydanticAI](https://ai.pydantic.dev/)**
+- **[Google ADK](https://google.github.io/adk-docs/)**
+- **[OpenAI](https://openai.github.io/openai-agents-python/)**
 - **Bring Your Own Agent**
 
 ### MCP (Model Context Protocol) Support
@@ -81,6 +83,9 @@ The [examples/](examples/) directory contains various implementation examples:
 - [nostr_dspy_agent.py](examples/nostr_dspy_agent.py): A DSPy agent connected to Nostr MCP
 - [nostr_langgraph_agent.py](examples/nostr_langgraph_agent.py): A LangGraph agent connected to Nostr MCP
 - [nostr_agno_agent.py](examples/nostr_agno_agent.py): An Agno agent connected to Nostr MCP
+- [nostr_google_agent.py](examples/nostr_google_agent.py): A Google ADK agent connected to Nostr MCP
+- [nostr_openai_agent.py](examples/nostr_openai_agent.py): An OpenAI agent connected to Nostr MCP
+- [nostr_pydantic_agent.py](examples/nostr_pydantic_agent.py): A PydanticAI agent connected to Nostr MCP
 - [mcp_server.py](examples/mcp_server.py): Nostr MCP server implementation
 - [mcp_client.py](examples/mcp_client.py): Nostr MCP client example
 - [chat_with_agents.py](examples/chat_with_agents.py): Send a direct message to an agent
