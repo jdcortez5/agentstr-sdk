@@ -62,7 +62,7 @@ class NostrMCPClient:
             return None
 
         message = response.message
-        timestamp = int(time.time())
+        timestamp = int(time.time()) + 1
 
         logger.debug(f"MCP Client received message: {message}")
         if isinstance(message, str) and message.startswith("lnbc"):

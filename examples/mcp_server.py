@@ -13,15 +13,17 @@ private_key = os.getenv("EXAMPLE_MCP_SERVER_NSEC")
 # To enable Nostr Wallet Connect
 nwc_str = os.getenv("MCP_SERVER_NWC_CONN_STR")
 
-# Define tools
+# Addition tool
 async def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
 
+# Multiplication tool
 async def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
     return a * b
 
+# Weather tool
 async def get_weather(city: str) -> str:
     """Get weather for a given city."""
     return f"It's always sunny in {city}!"
@@ -39,7 +41,7 @@ async def run():
     # Add tools
     server.add_tool(add) # Free tool
     server.add_tool(multiply, satoshis=3) # Premium tool
-    server.add_tool(get_weather) # Free tool
+    server.add_tool(get_weather, satoshis=5) # Premium tool
 
     # Start the server
     await server.start()

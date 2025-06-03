@@ -53,6 +53,6 @@ async def ask_pydantic_agent():
 if __name__ == "__main__":
     import asyncio
     #asyncio.run(ask_langgraph_agent())
-    #asyncio.run(ask_agno_agent())
+    asyncio.run(ask_agno_agent())
     #asyncio.run(ask_dspy_agent())
-    asyncio.run(ask_pydantic_agent())
+    #asyncio.run(ask_pydantic_agent())

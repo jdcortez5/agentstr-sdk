@@ -95,7 +95,8 @@ def get_signed_event(event: dict, private_key: str):
     Returns:
         A signed Nostr event.
     """
-    event = Event.from_dict(event)
+    logger.debug(f"Signing event in nwc_relay: {json.dumps(event)}")
+    event = Event(**event)
     event.sign(private_key)
     return event
 
@@ -162,14 +163,17 @@ class NWCRelay:
             "created_at": math.floor(time.time()),
             "pubkey": self.nwc_info["app_pubkey"],
         }
+        logger.debug(f"Sending invoice request: {json.dumps(obj)}")
         event = get_signed_event(obj, self.nwc_info["app_privkey"])
         await self.event_relay.send_event(event)
         response = await self.get_response(event.id)
         if response is None:
+            logger.error("Failed to receive invoice response")
             return None
         ersp = response.content
         drsp = decrypt(self.nwc_info["app_privkey"], self.nwc_info["wallet_pubkey"], ersp)
         dobj = json.loads(drsp)
+        logger.debug(f"Received invoice response: {json.dumps(dobj)}")
         return dobj["result"]["invoice"]
 
     async def check_invoice(self, invoice: str | None = None, payment_hash: str | None = None) -> dict | None:

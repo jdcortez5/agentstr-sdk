@@ -15,11 +15,14 @@ relays = os.getenv("NOSTR_RELAYS").split(",")
 private_key = os.getenv("EXAMPLE_AGNO_AGENT_NSEC")
 mcp_server_pubkey = os.getenv("EXAMPLE_MCP_SERVER_PUBKEY")
 
+# Enable lightning payments
+nwc_str = os.getenv("MCP_CLIENT_NWC_CONN_STR")
 
+# Create Nostr MCP client
 nostr_mcp_client = NostrMCPClient(relays=relays,
                                   private_key=private_key,
-                                  mcp_pubkey=mcp_server_pubkey)
-
+                                  mcp_pubkey=mcp_server_pubkey,
+                                  nwc_str=nwc_str)
 
 
 async def agent_server():
@@ -48,6 +51,7 @@ async def agent_server():
     # Create Nostr Agent Server
     server = NostrAgentServer(relays=relays,
                               private_key=private_key,
+                              nwc_str=nwc_str,
                               agent_callable=agent_callable)
 
     # Start server

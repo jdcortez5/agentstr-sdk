@@ -192,8 +192,8 @@ class EventRelay:
                             except Exception as e:
                                 logger.error(f"Error in event_listener callback: {e}")
                         await asyncio.sleep(0)
-                except ConnectionClosedError:
-                    logger.warning("Connection closed in event_listener. Reconnecting now...")
+                except Exception as e:
+                    logger.warning(f"Connection closed in event_listener at {int(time.time())} trying again: {e}")
                     filters.since = latest_timestamp + 1
                     subscription = create_subscription(filters)
                     logger.debug(f"Sending event subscription: {json.dumps(subscription)}")
@@ -228,8 +228,8 @@ class EventRelay:
                                 except Exception as e:
                                     logger.error(f"Error in direct_message_listener callback: {e}")
                         await asyncio.sleep(0)
-                except ConnectionClosedError:
-                    logger.warning("Connection closed in direct_message_listener. Reconnecting now...")
+                except Exception as e:
+                    logger.warning(f"Connection closed in direct_message_listener at {int(time.time())} trying again: {e}")
                     filters.since = latest_timestamp + 1
                     subscription = create_subscription(filters)
                     logger.debug(f"Sending DM subscription: {json.dumps(subscription)}")

@@ -37,6 +37,10 @@ async def run()   :
     result = await mcp_client.call_tool("multiply", {"a": 69, "b": 420})
     print(f'The result of 69 * 420 is: {result["content"][-1]["text"]}')
 
+    # Call a premium tool
+    result = await mcp_client.call_tool("get_weather", {"city": "San Francisco"})
+    print(f'The weather in San Francisco is: {result["content"][-1]["text"]}')
+
 
 if __name__ == "__main__":
     import asyncio
