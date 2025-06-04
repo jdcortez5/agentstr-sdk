@@ -1,5 +1,5 @@
 Nostr Client
-===========
+============
 
 This module provides a client implementation for interacting with the Nostr network.
 It handles connection management, event publishing, subscription handling, and message

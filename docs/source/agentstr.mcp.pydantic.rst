@@ -1,5 +1,5 @@
 PydanticAI Integration
-====================
+======================
 
 .. automodule:: agentstr.mcp.pydantic
    :members:
@@ -9,5 +9,5 @@ PydanticAI Integration
 This module provides integration with PydanticAI tools, enabling conversion between MCP tools and PydanticAI's tool format.
 
 Main Functions
--------------
+--------------
 .. autofunction:: to_pydantic_tools

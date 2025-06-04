@@ -49,6 +49,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = "furo"
+html_title = "Agentstr SDK"
 html_static_path = ["_static"]
 html_theme_options = {
     "light_logo": "favicon.ico",

@@ -1,5 +1,5 @@
 DSPy Integration
-===============
+================
 
 .. automodule:: agentstr.mcp.dspy
    :members:
@@ -9,5 +9,5 @@ DSPy Integration
 This module provides integration with DSPy tools, enabling conversion between MCP tools and DSPy's tool format.
 
 Main Functions
--------------
+--------------
 .. autofunction:: to_dspy_tools

@@ -1,5 +1,5 @@
 Nostr MCP Server
-===============
+================
 
 This module implements a Model Control Protocol (MCP) server that runs over the Nostr network.
 It allows entities to expose their tools and handle incoming requests from

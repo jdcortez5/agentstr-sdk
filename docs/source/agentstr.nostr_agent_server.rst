@@ -1,5 +1,5 @@
 Nostr Agent Server
-=================
+==================
 
 This module implements a Nostr agent server that handles incoming Nostr events and processes
 them according to the configured agent capabilities. It provides the core server functionality

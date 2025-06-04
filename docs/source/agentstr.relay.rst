@@ -1,5 +1,5 @@
 Relay Module
-===========
+============
 
 This module provides the core relay functionality for the Agentstr SDK, enabling
 communication between Nostr clients and agents. It handles message routing, event

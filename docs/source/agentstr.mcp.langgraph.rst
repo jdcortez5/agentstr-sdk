@@ -1,5 +1,5 @@
 LangGraph Integration
-====================
+=====================
 
 .. automodule:: agentstr.mcp.langgraph
    :members:
@@ -9,5 +9,5 @@ LangGraph Integration
 This module provides integration with LangGraph tools, enabling conversion between MCP tools and LangGraph's tool format.
 
 Main Functions
--------------
+--------------
 .. autofunction:: to_langgraph_tools
