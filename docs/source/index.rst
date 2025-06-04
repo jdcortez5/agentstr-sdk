@@ -14,7 +14,7 @@ Welcome to Agentstr SDK's documentation!
    :target: LICENSE
    :alt: License
 
-Agentstr SDK is a powerful toolkit for building agentic applications on the Nostr protocol.
+Agentstr SDK is a powerful toolkit for building decentralized agentic applications on the Nostr protocol.
 
 For detailed usage examples and tutorials, check out our `Usage Guide <https://agentstr.com/usage>`_.
 
