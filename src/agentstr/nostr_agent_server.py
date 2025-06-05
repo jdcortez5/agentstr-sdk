@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 from pynostr.event import Event
 
-from agentstr.a2a import AgentCard, ChatInput, RouterResponse, agent_router
+from agentstr.a2a import AgentCard, ChatInput, PriceHandlerResponse, price_handler
 from agentstr.logger import get_logger
 from agentstr.nostr_client import NostrClient
 from agentstr.nostr_mcp_client import NostrMCPClient
@@ -34,7 +34,7 @@ class NostrAgentServer:
                  agent_info: AgentCard | None = None,
                  agent_callable: Callable[[ChatInput], str] | None = None,
                  note_filters: NoteFilters | None = None,
-                 router_llm: Any | None = None):
+                 price_handler_callable: Callable[[str], str] | None = None):
         """Initialize the agent server.
 
         Args:
@@ -52,7 +52,7 @@ class NostrAgentServer:
         self.agent_info = agent_info
         self.agent_callable = agent_callable
         self.note_filters = note_filters
-        self.router_llm = router_llm
+        self.price_handler_callable = price_handler_callable
 
     async def chat(self, message: str, thread_id: str | None = None) -> Any:
         """Send a message to the agent and retrieve the response.
@@ -66,17 +66,17 @@ class NostrAgentServer:
         """
         return await self.agent_callable(ChatInput(messages=[message], thread_id=thread_id))
 
-    async def _handle_paid_invoice(self, event: Event, message: str, invoice: str, router_response: RouterResponse = None):
+    async def _handle_paid_invoice(self, event: Event, message: str, invoice: str, price_handler_response: PriceHandlerResponse = None):
         """Handle a paid invoice."""
-        if router_response:
-            skills_used = ", ".join(router_response.skills_used)
+        if price_handler_response:
+            skills_used = ", ".join(price_handler_response.skills_used)
             message = f"""I'd like to follow up on our previous exchange:
 
 Your Request:
 {message}
 
 Your Response:
-{router_response.user_message}
+{price_handler_response.user_message}
 
 Could you please proceed with the next steps or provide an update on this matter?
 
@@ -120,16 +120,16 @@ Only use the following tools: [{skills_used}]
             return
         message = message.strip()
         invoice = None
-        router_response = None
+        price_handler_response = None
         logger.debug(f"Agent request: {message}")
         try:
             response = None
             cost_sats = None
-            if self.router_llm:
-                router_response = await agent_router(message, self.agent_info, self.router_llm, thread_id=event.pubkey)
-                response = router_response.user_message
-                if router_response.can_handle:
-                    cost_sats = router_response.cost_sats
+            if self.price_handler_callable:
+                price_handler_response = await price_handler(message, self.agent_info, self.price_handler_callable, thread_id=event.pubkey)
+                response = price_handler_response.user_message
+                if price_handler_response.can_handle:
+                    cost_sats = price_handler_response.cost_sats
                 else:
                     await self.client.send_direct_message(event.pubkey, response)
                     return
@@ -151,7 +151,7 @@ Only use the following tools: [{skills_used}]
         tasks = []
         tasks.append(self.client.send_direct_message(event.pubkey, response))
         if invoice:
-            tasks.append(self._handle_paid_invoice(event, message, invoice, router_response))
+            tasks.append(self._handle_paid_invoice(event, message, invoice, price_handler_response))
         await asyncio.gather(*tasks)
 
 
@@ -165,7 +165,7 @@ Only use the following tools: [{skills_used}]
             content = event.content
             logger.info(f"Received note from {event.pubkey}: {content}")
 
-            router_response = await agent_router(content, self.agent_info, self.router_llm, thread_id=event.pubkey)
+            router_response = await price_handler(content, self.agent_info, self.price_handler_callable, thread_id=event.pubkey)
             logger.info(f"Router response: {router_response.model_dump()}")
 
             if router_response.can_handle:

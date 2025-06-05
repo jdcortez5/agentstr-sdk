@@ -79,8 +79,8 @@ class ChatInput(BaseModel):
     extra_inputs: dict[str, Any] = {}
 
 
-class RouterResponse(BaseModel):
-    """Response model for the agent router.
+class PriceHandlerResponse(BaseModel):
+    """Response model for the price handler.
 
     Attributes:
         can_handle: Whether the agent can handle the request
@@ -97,7 +97,7 @@ class RouterResponse(BaseModel):
 CHAT_HISTORY = {}  # Thread id -> [str]
 
 
-async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> RouterResponse:
+async def price_handler(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> PriceHandlerResponse:
     """Determine if an agent can handle a user's request and calculate the cost.
 
     This function uses an LLM to analyze whether the agent's skills match the user's request
@@ -109,7 +109,7 @@ async def agent_router(user_message: str, agent_card: AgentCard, llm_callable: c
         llm_callable: A callable that takes a prompt and returns an LLM response.
 
     Returns:
-        RouterResponse
+        PriceHandlerResponse
     """
 
     # check history
@@ -134,8 +134,7 @@ Skills:"""
         prompt += f"\n- {skill.name}: {skill.description}"
 
     prompt += f"\n\nUser Request History: \n\n{user_message}\n\n"
-    prompt += """
-Analyze if the agent can handle this request based on their skills and description and chat history.
+    prompt += """Analyze if the agent can handle this request based on their skills and description and chat history.
 Consider both the agent's capabilities and whether the request matches their purpose.
 
 The agent may need to use multiple skills to handle the request. If so, include all
@@ -152,8 +151,7 @@ Respond with a JSON object with these fields:
     "can_handle": boolean,    # Whether the agent can handle this request
     "user_message": string,   # Friendly message to ask the user if they want to proceed
     "skills_used": [string]   # Names of skills being used, if any
-}
-    """
+}"""
     logger.debug(f"Prompt: {prompt}")
     try:
         # Get the LLM response
