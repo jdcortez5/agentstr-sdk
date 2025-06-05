@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 from pynostr.event import Event
 
-from agentstr.a2a import AgentCard, ChatInput, PriceHandlerResponse, price_handler
+from agentstr.a2a import AgentCard, ChatInput, PriceHandlerResponse, PriceHandler
 from agentstr.logger import get_logger
 from agentstr.nostr_client import NostrClient
 from agentstr.nostr_mcp_client import NostrMCPClient
@@ -34,7 +34,7 @@ class NostrAgentServer:
                  agent_info: AgentCard | None = None,
                  agent_callable: Callable[[ChatInput], str] | None = None,
                  note_filters: NoteFilters | None = None,
-                 price_handler_callable: Callable[[str], str] | None = None):
+                 price_handler: PriceHandler | None = None):
         """Initialize the agent server.
 
         Args:
@@ -46,13 +46,13 @@ class NostrAgentServer:
             agent_info: Agent information (optional).
             agent_callable: Callable to handle agent responses.
             note_filters: Filters for listening to Nostr notes (optional).
-            router_llm: LLM to use for routing (optional).
+            price_handler: PriceHandler to use for determining if an agent can handle a request and calculate the cost (optional).
         """
         self.client = nostr_client or (nostr_mcp_client.client if nostr_mcp_client else NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str))
         self.agent_info = agent_info
         self.agent_callable = agent_callable
         self.note_filters = note_filters
-        self.price_handler_callable = price_handler_callable
+        self.price_handler = price_handler
 
     async def chat(self, message: str, thread_id: str | None = None) -> Any:
         """Send a message to the agent and retrieve the response.
@@ -125,8 +125,8 @@ Only use the following tools: [{skills_used}]
         try:
             response = None
             cost_sats = None
-            if self.price_handler_callable:
-                price_handler_response = await price_handler(message, self.agent_info, self.price_handler_callable, thread_id=event.pubkey)
+            if self.price_handler:
+                price_handler_response = await self.price_handler.handle(message, self.agent_info, thread_id=event.pubkey)
                 response = price_handler_response.user_message
                 if price_handler_response.can_handle:
                     cost_sats = price_handler_response.cost_sats
@@ -161,21 +161,24 @@ Only use the following tools: [{skills_used}]
         Args:
             event: The Nostr event containing the note.
         """
+        if not self.price_handler:
+            logger.warning("No price handler provided. Skipping note callback.")
+            return
         try:
             content = event.content
             logger.info(f"Received note from {event.pubkey}: {content}")
 
-            router_response = await price_handler(content, self.agent_info, self.price_handler_callable, thread_id=event.pubkey)
-            logger.info(f"Router response: {router_response.model_dump()}")
+            price_handler_response = await self.price_handler.handle(content, self.agent_info, thread_id=event.pubkey)
+            logger.info(f"Price handler response: {price_handler_response.model_dump()}")
 
-            if router_response.can_handle:
+            if price_handler_response.can_handle:
                 # Formulate and send direct message to the user
-                response = router_response.user_message
+                response = price_handler_response.user_message
                 tasks = []
-                if router_response.cost_sats > 0:
-                    invoice = await self.client.nwc_relay.make_invoice(amount=router_response.cost_sats, description=f"Payment to {self.agent_info.name}")
-                    response = f"{response}\n\nPlease pay {router_response.cost_sats} sats: {invoice}"
-                    tasks.append(self._handle_paid_invoice(event, content, invoice, router_response))
+                if price_handler_response.cost_sats > 0:
+                    invoice = await self.client.nwc_relay.make_invoice(amount=price_handler_response.cost_sats, description=f"Payment to {self.agent_info.name}")
+                    response = f"{response}\n\nPlease pay {price_handler_response.cost_sats} sats: {invoice}"
+                    tasks.append(self._handle_paid_invoice(event, content, invoice, price_handler_response))
 
                 tasks.append(self.client.send_direct_message(event.pubkey, response, event_ref=event.id))
                 await asyncio.gather(*tasks)

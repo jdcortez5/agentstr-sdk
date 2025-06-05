@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel
 
@@ -97,32 +97,36 @@ class PriceHandlerResponse(BaseModel):
 CHAT_HISTORY = {}  # Thread id -> [str]
 
 
-async def price_handler(user_message: str, agent_card: AgentCard, llm_callable: callable, thread_id: str | None = None) -> PriceHandlerResponse:
-    """Determine if an agent can handle a user's request and calculate the cost.
+class PriceHandler:
+    def __init__(self, llm_callable: Callable[[str], str]):
+        self.llm_callable = llm_callable
 
-    This function uses an LLM to analyze whether the agent's skills match the user's request
-    and returns the cost in satoshis if the agent can handle it.
+    async def handle(self, user_message: str, agent_card: AgentCard, thread_id: str | None = None) -> PriceHandlerResponse:
+        """Determine if an agent can handle a user's request and calculate the cost.
 
-    Args:
-        user_message: The user's request message.
-        agent_card: The AgentCard containing the agent's skills and pricing.
-        llm_callable: A callable that takes a prompt and returns an LLM response.
+        This function uses an LLM to analyze whether the agent's skills match the user's request
+        and returns the cost in satoshis if the agent can handle it.
 
-    Returns:
-        PriceHandlerResponse
-    """
+        Args:
+            user_message: The user's request message.
+            agent_card: The agent's model card.
+            thread_id: Optional thread ID for conversation context.
 
-    # check history
-    if thread_id and thread_id in CHAT_HISTORY:
-        user_message = f"{CHAT_HISTORY[thread_id]}\n\n{user_message}"
-    if thread_id:
-        CHAT_HISTORY[thread_id] = user_message
+        Returns:
+            PriceHandlerResponse
+        """
 
-    logger.debug(f"Agent router: {user_message}")
-    logger.debug(f"Agent card: {agent_card.model_dump()}")
+        # check history
+        if thread_id and thread_id in CHAT_HISTORY:
+            user_message = f"{CHAT_HISTORY[thread_id]}\n\n{user_message}"
+        if thread_id:
+            CHAT_HISTORY[thread_id] = user_message
 
-    # Prepare the prompt for the LLM
-    prompt = f"""You are an agent router that determines if an agent can handle a user's request.
+        logger.debug(f"Agent router: {user_message}")
+        logger.debug(f"Agent card: {agent_card.model_dump()}")
+
+        # Prepare the prompt for the LLM
+        prompt = f"""You are an agent router that determines if an agent can handle a user's request.
 
 Agent Information:
 Name: {agent_card.name}
@@ -130,11 +134,11 @@ Description: {agent_card.description}
 
 Skills:"""
 
-    for skill in agent_card.skills:
-        prompt += f"\n- {skill.name}: {skill.description}"
+        for skill in agent_card.skills:
+            prompt += f"\n- {skill.name}: {skill.description}"
 
-    prompt += f"\n\nUser Request History: \n\n{user_message}\n\n"
-    prompt += """Analyze if the agent can handle this request based on their skills and description and chat history.
+        prompt += f"\n\nUser Request History: \n\n{user_message}\n\n"
+        prompt += """Analyze if the agent can handle this request based on their skills and description and chat history.
 Consider both the agent's capabilities and whether the request matches their purpose.
 
 The agent may need to use multiple skills to handle the request. If so, include all
@@ -152,64 +156,64 @@ Respond with a JSON object with these fields:
     "user_message": string,   # Friendly message to ask the user if they want to proceed
     "skills_used": [string]   # Names of skills being used, if any
 }"""
-    logger.debug(f"Prompt: {prompt}")
-    try:
-        # Get the LLM response
-        response = await llm_callable(prompt)
-
-        # Seek to first { and last }
-        response = response[response.find("{"):response.rfind("}")+1]
-        logger.debug(f"LLM response: {response}")
-
-        # Parse the response
+        logger.debug(f"Prompt: {prompt}")
         try:
-            result = json.loads(response.strip())
-            can_handle = result.get("can_handle", False)
-            user_message = result.get("user_message", "")
+            # Get the LLM response
+            response = await self.llm_callable(prompt)
 
-            # Get skills used
-            skills_used = result.get("skills_used", [])
+            # Seek to first { and last }
+            response = response[response.find("{"):response.rfind("}")+1]
+            logger.debug(f"LLM response: {response}")
 
-            # Calculate total cost based on skills used
-            cost = 0
-            if can_handle:
-                # If specific skills are used, sum their costs
-                if skills_used:
-                    skill_cost = 0
-                    for skill_name in skills_used:
-                        for skill in agent_card.skills:
-                            if skill.name.lower() == skill_name.lower() and skill.satoshis is not None:
-                                skill_cost += skill.satoshis
-                                break
-                    # Only use skill-based pricing if at least one skill has a price
-                    if skill_cost > 0:
-                        cost = skill_cost
-                # Add base price to skill-based pricing
-                if agent_card.satoshis is not None:
-                    cost += agent_card.satoshis
+            # Parse the response
+            try:
+                result = json.loads(response.strip())
+                can_handle = result.get("can_handle", False)
+                user_message = result.get("user_message", "")
 
-            logger.debug(f"Router response: {can_handle}, {cost}, {user_message}, {skills_used}")
-            return RouterResponse(
-                can_handle=can_handle,
-                cost_sats=cost,
-                user_message=user_message,
-                skills_used=skills_used,
-            )
+                # Get skills used
+                skills_used: list[str] = result.get("skills_used", [])
 
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Error parsing LLM response: {e!s}")
-            return RouterResponse(
+                # Calculate total cost based on skills used
+                cost = 0
+                if can_handle:
+                    # If specific skills are used, sum their costs
+                    if skills_used:
+                        skill_cost = 0
+                        for skill_name in skills_used:
+                            for skill in agent_card.skills:
+                                if skill.name.lower() == skill_name.lower() and skill.satoshis is not None:
+                                    skill_cost += skill.satoshis
+                                    break
+                        # Only use skill-based pricing if at least one skill has a price
+                        if skill_cost > 0:
+                            cost = skill_cost
+                    # Add base price to skill-based pricing
+                    if agent_card.satoshis is not None:
+                        cost += agent_card.satoshis
+
+                logger.debug(f"Router response: {can_handle}, {cost}, {user_message}, {skills_used}")
+                return PriceHandlerResponse(
+                    can_handle=can_handle,
+                    cost_sats=cost,
+                    user_message=user_message,
+                    skills_used=skills_used,
+                )
+
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.error(f"Error parsing LLM response: {e!s}")
+                return PriceHandlerResponse(
+                    can_handle=False,
+                    cost_sats=0,
+                    user_message=f"Error parsing LLM response: {e!s}",
+                    skills_used=[],
+                )
+
+        except Exception as e:
+            logger.error(f"Error in agent routing: {e!s}")
+            return PriceHandlerResponse(
                 can_handle=False,
                 cost_sats=0,
-                user_message=f"Error parsing LLM response: {e!s}",
+                user_message=f"Error in agent routing: {e!s}",
                 skills_used=[],
             )
-
-    except Exception as e:
-        logger.error(f"Error in agent routing: {e!s}")
-        return RouterResponse(
-            can_handle=False,
-            cost_sats=0,
-            user_message=f"Error in agent routing: {e!s}",
-            skills_used=[],
-        )

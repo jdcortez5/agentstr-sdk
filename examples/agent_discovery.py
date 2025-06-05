@@ -5,7 +5,7 @@ load_dotenv()
 import json
 import os
 
-from agentstr import NostrClient
+from agentstr import NostrClient, AgentCard
 
 # Define relays
 relays = os.getenv("NOSTR_RELAYS").split(",")
@@ -17,10 +17,10 @@ async def run():
     for event in events:
         metadata = await client.get_metadata_for_pubkey(event.pubkey)
         try:
-            agent_info = json.loads(metadata.about)
-            print(json.dumps(agent_info, indent=4))
+            agent_info = AgentCard.model_validate_json(metadata.about)
+            print(json.dumps(agent_info.model_dump(), indent=4))
         except:
-            pass
+            pass  # Invalid agent card
 
 
 if __name__ == "__main__":
