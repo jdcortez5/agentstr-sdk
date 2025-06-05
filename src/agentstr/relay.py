@@ -20,14 +20,9 @@ logger = get_logger(__name__)
 
 
 class DecryptedMessage(BaseModel):
-    """A decrypted message from a Nostr relay.
-    
-    Attributes:
-        event: The Nostr event containing the message.
-        message: The decrypted message content.
-    """
-    event: Event
-    message: str
+    """A decrypted message from a Nostr relay."""
+    event: Event  #: The Nostr event containing the message.
+    message: str  #: The decrypted message content.
 
 
 def create_subscription(filters: Filters) -> list[str]:

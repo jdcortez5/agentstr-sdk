@@ -1,17 +1,16 @@
 from typing import Any
 
 from agno.tools import Function
-from agno.tools.function import FunctionExecutionResult
 
 from agentstr.nostr_mcp_client import NostrMCPClient
 
 
 async def to_agno_tools(nostr_mcp_client: NostrMCPClient) -> list[Function]:
     """Convert tools from the MCP client to Agno tools.
-    
+
     Args:
         nostr_mcp_client: An instance of NostrMCPClient to fetch tools from.
-        
+
     Returns:
         A list of Agno Function objects that wrap the MCP tools.
     """

@@ -1,5 +1,5 @@
-MCP (Model Context Protocol) Module
-===================================
+MCP (Model Context Protocol)
+============================
 
 The MCP module provides MCP integration with various agent frameworks.
 

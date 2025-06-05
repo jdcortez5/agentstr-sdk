@@ -29,6 +29,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
+    "sphinxcontrib.autodoc_pydantic",
 ]
 
 autodoc_default_options = {

@@ -67,6 +67,7 @@ class AgentCard(BaseModel):
 
 class ChatInput(BaseModel):
     """Represents input data for an agent-to-agent chat interaction.
+
     Attributes:
         messages (list[str]): A list of messages in the conversation.
         thread_id (str, optional): The ID of the conversation thread. Defaults to None.
@@ -80,6 +81,7 @@ class ChatInput(BaseModel):
 
 class RouterResponse(BaseModel):
     """Response model for the agent router.
+
     Attributes:
         can_handle: Whether the agent can handle the request
         cost_sats: Total cost in satoshis (0 if free or not applicable)

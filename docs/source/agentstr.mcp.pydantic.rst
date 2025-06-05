@@ -7,7 +7,3 @@ PydanticAI Integration
    :show-inheritance:
 
 This module provides integration with PydanticAI tools, enabling conversion between MCP tools and PydanticAI's tool format.
-
-Main Functions
---------------
-.. autofunction:: to_pydantic_tools

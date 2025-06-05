@@ -5,10 +5,10 @@ from agentstr.nostr_mcp_client import NostrMCPClient
 
 async def to_dspy_tools(nostr_mcp_client: NostrMCPClient) -> list[dspy.Tool]:
     """Convert tools from the MCP client to Dspy tools.
-    
+
     Args:
         nostr_mcp_client: An instance of NostrMCPClient to fetch tools from.
-        
+
     Returns:
         A list of DSPy Tool objects that wrap the MCP tools.
     """

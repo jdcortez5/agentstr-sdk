@@ -14,16 +14,10 @@ logger = get_logger(__name__)
 
 
 class NoteFilters(BaseModel):
-    """Filters for filtering Nostr notes/events.
-
-    Attributes:
-        nostr_pubkeys: Filter by specific public keys
-        nostr_tags: Filter by specific tags
-        following_only: Only show notes from followed users (not implemented)
-    """
-    nostr_pubkeys: list[str] | None = None
-    nostr_tags: list[str] | None = None
-    following_only: bool = False
+    """Filters for filtering Nostr notes/events."""
+    nostr_pubkeys: list[str] | None = None  #: Filter by specific public keys
+    nostr_tags: list[str] | None = None  #: Filter by specific tags
+    following_only: bool = False  #: Only show notes from followed users (not implemented)
 
 
 class NostrAgentServer:

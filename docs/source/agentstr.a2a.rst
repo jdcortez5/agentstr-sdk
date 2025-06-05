@@ -1,5 +1,5 @@
-A2A (Agent-to-Agent) Module
-===========================
+A2A (Agent-to-Agent)
+====================
 
 This module provides the core functionality for agent-to-agent communication in the Agentstr SDK.
 It includes base classes and utilities for defining agent capabilities, handling messages,
@@ -9,3 +9,4 @@ and managing agent interactions within the Nostr network.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:

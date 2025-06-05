@@ -8,10 +8,10 @@ from pydantic_ai import Tool
 
 async def to_pydantic_tools(nostr_mcp_client: NostrMCPClient) -> list[Tool]:
     """Convert tools from the MCP client to Pydantic tools.
-    
+
     Args:
         nostr_mcp_client: An instance of NostrMCPClient to fetch tools from.
-        
+
     Returns:
         A list of Pydantic tools that wrap the MCP tools.
     """
