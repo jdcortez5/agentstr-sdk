@@ -9,10 +9,10 @@ from agentstr import NostrClient
 
 # Define relays
 relays = os.getenv("NOSTR_RELAYS").split(",")
+client = NostrClient(relays)
 
 
 async def run():
-    client = NostrClient(relays)
     events = await client.read_posts_by_tag("mcp_research_tools", limit=2)
     for event in events:
         metadata = await client.get_metadata_for_pubkey(event.pubkey)

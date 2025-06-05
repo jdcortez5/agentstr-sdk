@@ -8,6 +8,7 @@ from pynostr.event import Event
 from agentstr.a2a import AgentCard, ChatInput, RouterResponse, agent_router
 from agentstr.logger import get_logger
 from agentstr.nostr_client import NostrClient
+from agentstr.nostr_mcp_client import NostrMCPClient
 
 logger = get_logger(__name__)
 
@@ -32,6 +33,7 @@ class NostrAgentServer:
     """
     def __init__(self,
                  nostr_client: NostrClient | None = None,
+                 nostr_mcp_client: NostrMCPClient | None = None,
                  relays: list[str] | None = None,
                  private_key: str | None = None,
                  nwc_str: str | None = None,
@@ -43,6 +45,7 @@ class NostrAgentServer:
 
         Args:
             nostr_client: Existing NostrClient instance (optional).
+            nostr_mcp_client: Existing NostrMCPClient instance (optional).
             relays: List of Nostr relay URLs (if no client provided).
             private_key: Nostr private key (if no client provided).
             nwc_str: Nostr Wallet Connect string for payments (optional).
@@ -51,7 +54,7 @@ class NostrAgentServer:
             note_filters: Filters for listening to Nostr notes (optional).
             router_llm: LLM to use for routing (optional).
         """
-        self.client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
+        self.client = nostr_client or (nostr_mcp_client.client if nostr_mcp_client else NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str))
         self.agent_info = agent_info
         self.agent_callable = agent_callable
         self.note_filters = note_filters

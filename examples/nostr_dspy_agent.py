@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-from pynostr.key import PrivateKey
 
 load_dotenv()
 
@@ -10,23 +9,11 @@ import dspy
 from agentstr import NostrAgentServer, NostrMCPClient, ChatInput
 from agentstr.mcp.dspy import to_dspy_tools
 
-# Get the environment variables
-relays = os.getenv("NOSTR_RELAYS").split(",")
-private_key = os.getenv("EXAMPLE_DSPY_AGENT_NSEC")
-mcp_server_pubkey = os.getenv("EXAMPLE_MCP_SERVER_PUBKEY")
-llm_base_url = os.getenv("LLM_BASE_URL").rstrip("/v1")
-llm_api_key = os.getenv("LLM_API_KEY")
-llm_model_name = os.getenv("LLM_MODEL_NAME")
-
-# Enable lightning payments
-nwc_str = os.getenv("MCP_CLIENT_NWC_CONN_STR")
-
 # Create Nostr MCP client
-nostr_mcp_client = NostrMCPClient(relays=relays,
-                                  private_key=private_key,
-                                  mcp_pubkey=mcp_server_pubkey,
-                                  nwc_str=nwc_str)
-
+nostr_mcp_client = NostrMCPClient(relays=os.getenv("NOSTR_RELAYS").split(","),
+                                  private_key=os.getenv("EXAMPLE_DSPY_AGENT_NSEC"),
+                                  mcp_pubkey=os.getenv("EXAMPLE_MCP_SERVER_PUBKEY"),
+                                  nwc_str=os.getenv("MCP_CLIENT_NWC_CONN_STR"))
 
 async def agent_server():    
     # Convert tools to DSPy tools
@@ -39,9 +26,9 @@ async def agent_server():
     react = dspy.ReAct("question -> answer: str", tools=dspy_tools)
 
     # Configure DSPy
-    dspy.configure(lm=dspy.LM(model=llm_model_name, 
-                              api_base=llm_base_url, 
-                              api_key=llm_api_key, 
+    dspy.configure(lm=dspy.LM(model=os.getenv("LLM_MODEL_NAME"), 
+                              api_base=os.getenv("LLM_BASE_URL").rstrip("/v1"), 
+                              api_key=os.getenv("LLM_API_KEY"), 
                               model_type="chat",
                               temperature=0))
 
@@ -50,10 +37,8 @@ async def agent_server():
         return (await react.acall(question=chat_input.messages[-1])).answer
 
     # Create Nostr Agent Server
-    server = NostrAgentServer(relays=relays,
-                              private_key=private_key,
-                              agent_callable=agent_callable,
-                              nwc_str=nwc_str)
+    server = NostrAgentServer(nostr_mcp_client=nostr_mcp_client,
+                              agent_callable=agent_callable)
 
     # Start server
     await server.start()

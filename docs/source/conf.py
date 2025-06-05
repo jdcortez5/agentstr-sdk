@@ -8,8 +8,8 @@ import sys
 
 # -- Project information -----------------------------------------------------
 project = "Agentstr SDK"
-copyright = "2025, HallmarkBitcoin"
-author = "HallmarkBitcoin"
+copyright = "2025, Agentstr. All rights reserved."
+author = "Agentstr"
 
 # -- General configuration ---------------------------------------------------
 from pathlib import Path

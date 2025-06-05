@@ -10,20 +10,11 @@ from agno.models.openai import OpenAIChat
 from agentstr import ChatInput, NostrAgentServer, NostrMCPClient
 from agentstr.mcp.agno import to_agno_tools
 
-# Get the environment variables
-relays = os.getenv("NOSTR_RELAYS").split(",")
-private_key = os.getenv("EXAMPLE_AGNO_AGENT_NSEC")
-mcp_server_pubkey = os.getenv("EXAMPLE_MCP_SERVER_PUBKEY")
-
-# Enable lightning payments
-nwc_str = os.getenv("MCP_CLIENT_NWC_CONN_STR")
-
 # Create Nostr MCP client
-nostr_mcp_client = NostrMCPClient(relays=relays,
-                                  private_key=private_key,
-                                  mcp_pubkey=mcp_server_pubkey,
-                                  nwc_str=nwc_str)
-
+nostr_mcp_client = NostrMCPClient(relays=os.getenv("NOSTR_RELAYS").split(","),
+                                  private_key=os.getenv("EXAMPLE_AGNO_AGENT_NSEC"),
+                                  mcp_pubkey=os.getenv("EXAMPLE_MCP_SERVER_PUBKEY"),
+                                  nwc_str=os.getenv("MCP_CLIENT_NWC_CONN_STR"))
 
 async def agent_server():
     # Define tools
@@ -49,9 +40,7 @@ async def agent_server():
         return result.content
 
     # Create Nostr Agent Server
-    server = NostrAgentServer(relays=relays,
-                              private_key=private_key,
-                              nwc_str=nwc_str,
+    server = NostrAgentServer(nostr_mcp_client=nostr_mcp_client,
                               agent_callable=agent_callable)
 
     # Start server
