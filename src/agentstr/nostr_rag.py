@@ -1,6 +1,8 @@
 import json
+from typing import Literal
 
 from pynostr.event import Event
+from pydantic import BaseModel
 
 from agentstr.logger import get_logger
 from agentstr.nostr_client import NostrClient
@@ -23,6 +25,11 @@ except ImportError:
 logger = get_logger(__name__)
 
 
+class Author(BaseModel):
+    pubkey: str
+    name: str | None = None
+
+
 class NostrRAG:
     """Retrieval-Augmented Generation (RAG) system for Nostr events.
     
@@ -30,7 +37,8 @@ class NostrRAG:
     semantic search and question answering over the indexed content.
     """
     def __init__(self, nostr_client: NostrClient | None = None, vector_store=None, relays: list[str] | None = None,
-                 private_key: str | None = None, nwc_str: str | None = None, embeddings=None, llm=None, llm_model_name=None, llm_base_url=None, llm_api_key=None):
+                 private_key: str | None = None, nwc_str: str | None = None, embeddings=None, llm=None, llm_model_name=None, llm_base_url=None, llm_api_key=None,
+                 known_authors: list[Author] | None = None):
         """Initialize the NostrRAG system.
         
         Args:
@@ -54,9 +62,48 @@ class NostrRAG:
         self.nostr_client = nostr_client or NostrClient(relays=relays, private_key=private_key, nwc_str=nwc_str)
         self.embeddings = embeddings or FakeEmbeddings(size=256)
         self.vector_store = vector_store or InMemoryVectorStore(self.embeddings)
+        self.known_authors = known_authors or []
+        self.known_authors_name_to_pubkey = {author.name: author.pubkey for author in self.known_authors}
         if llm is None and llm_model_name is None:
             raise ValueError("llm or llm_model_name must be provided")
         self.llm = llm or ChatOpenAI(model_name=llm_model_name, base_url=llm_base_url, api_key=llm_api_key, temperature=0)
+
+    async def _select_author(self, question: str) -> tuple[str, str]:
+        """Select relevant users for the given question.
+
+        Args:
+            question: The question to find a relevant user in
+
+        Returns:
+            The selected user's name
+        """
+        template = """
+You are an user selector for Nostr. Given a question, suggest the relevant user mentioned in the question.
+You must select from the list of known users.
+Return ONLY the users in a JSON array format, like: ["Lyn Alden"] or ["Saifedean Ammous"]
+Only respond with 1 user. If no user is mentioned, return an empty array.
+
+Question: {question}
+
+Known users: {users}
+"""
+
+        prompt = template.format(question=question, users=json.dumps([author.name for author in self.known_authors]))
+        response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+
+        try:
+            authors = json.loads(response.content)
+            if len(authors) == 0:
+                return None, None
+            elif authors[0] in self.known_authors_name_to_pubkey:
+                return authors[0], self.known_authors_name_to_pubkey[authors[0]]
+            else:
+                logger.warning(f"Selected author not found in known authors: {authors[0]}")
+                return None, None
+        except json.JSONDecodeError:
+            # If the response isn't valid JSON, try to extract authors
+            logger.warning(f"Failed to parse author selection response. Response: {response.content}")
+            return None, None
 
     async def _select_hashtags(self, question: str, previous_hashtags: list[str] | None = None) -> list[str]:
         """Select relevant hashtags for the given question.
@@ -106,7 +153,7 @@ Previous hashtags: {history}
         metadata.pop("content")
         return Document(page_content=content, id=event.id, metadata=metadata)
 
-    async def build_knowledge_base(self, question: str, limit: int = 10) -> list[dict]:
+    async def build_knowledge_base(self, question: str, limit: int = 10, query_type: Literal["hashtags", "authors"] = "hashtags") -> list[dict]:
         """Build a knowledge base from Nostr events relevant to the question.
 
         Args:
@@ -117,46 +164,58 @@ Previous hashtags: {history}
             List of retrieved events
         """
         # Select relevant hashtags for the question
-        hashtags = await self._select_hashtags(question)
-        hashtags = [hashtag.lstrip("#") for hashtag in hashtags]
+        if query_type == "hashtags":
+            hashtags = await self._select_hashtags(question)
+            hashtags = [hashtag.lstrip("#") for hashtag in hashtags]
 
-        logger.info(f"Selected hashtags: {hashtags}")
+            logger.info(f"Selected hashtags: {hashtags}")
 
-        # Fetch events for each hashtag
-        events = await self.nostr_client.read_posts_by_tag(tags=hashtags, limit=limit)
+            # Fetch events for each hashtag
+            events = await self.nostr_client.read_posts_by_tag(tags=hashtags, limit=limit)
+        elif query_type == "authors":
+            name, pubkey = await self._select_author(question)
+            if pubkey is None:
+                return []
+            events = await self.nostr_client.read_posts_by_author(pubkey=pubkey, limit=limit)
+            for event in events:
+                event.content = f"Posted by {name}:\n\n{event.content}"
+        else:
+            raise ValueError(f"Invalid query type: {query_type}")
 
         # Process events into documents
         documents = [self._process_event(event) for event in events]
-        self.vector_store.add_texts([doc.page_content for doc in documents])
+        await self.vector_store.aadd_texts([doc.page_content for doc in documents])
 
         return events
 
-    async def retrieve(self, question: str, limit: int = 5) -> list[Document]:
+    async def retrieve(self, question: str, limit: int = 5, query_type: Literal["hashtags", "authors"] = "hashtags") -> list[Document]:
         """Retrieve relevant documents from the knowledge base.
 
         Args:
             question: The user's question
             limit: Maximum number of documents to retrieve
+            query_type: Type of query to use (hashtags or authors)
 
         Returns:
             List of retrieved documents
         """
-        await self.build_knowledge_base(question)
-        return self.vector_store.similarity_search(question, k=limit)
+        await self.build_knowledge_base(question, limit=limit, query_type=query_type)
+        return await self.vector_store.asimilarity_search(question, k=limit)
 
-    async def query(self, question: str, limit: int = 5) -> str:
+    async def query(self, question: str, limit: int = 5, query_type: Literal["hashtags", "authors"] = "hashtags") -> str:
         """Ask a question using the knowledge base.
 
         Args:
             question: The user's question
             limit: Number of documents to retrieve for context
+            query_type: Type of query to use (hashtags or authors)
 
         Returns:
             The generated response
         """
 
         # Get relevant documents
-        relevant_docs = await self.retrieve(question, limit)
+        relevant_docs = await self.retrieve(question, limit, query_type)
 
         # Generate response using the LLM
         template = """
@@ -173,6 +232,8 @@ Answer:"""
             question=question,
             context="\n\n".join([doc.page_content for doc in relevant_docs]),
         )
+
+        logger.info(f"Using prompt:\n{prompt}")
 
         response = await self.llm.ainvoke([HumanMessage(content=prompt)])
         return response.content
