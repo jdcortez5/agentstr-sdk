@@ -217,3 +217,20 @@ Respond with a JSON object with these fields:
                 user_message=f"Error in agent routing: {e!s}",
                 skills_used=[],
             )
+
+
+def default_price_handler(base_url: str | None = None, api_key: str | None = None, model_name: str | None = None) -> PriceHandler:
+    """Create a default price handler using the given LLM parameters."""
+    from langchain_openai import ChatOpenAI
+
+    async def llm_callable(prompt: str) -> str:
+        return (await ChatOpenAI(
+            temperature=0,
+            base_url=base_url or os.getenv("LLM_BASE_URL"),
+            api_key=api_key or os.getenv("LLM_API_KEY"),
+            model_name=model_name or os.getenv("LLM_MODEL_NAME"),
+        ).ainvoke(prompt)).content
+
+    return PriceHandler(
+        llm_callable=llm_callable
+    )
