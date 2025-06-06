@@ -1,11 +1,12 @@
 import asyncio
 from collections.abc import Callable
-from typing import Any
-
+from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel
+from pynostr.key import PrivateKey, PublicKey
 from pynostr.event import Event
 
-from agentstr.a2a import AgentCard, ChatInput, PriceHandlerResponse, PriceHandler
+from agentstr.a2a import AgentCard, ChatInput
+from agentstr.pricing import PriceHandler, PriceHandlerResponse, default_price_handler
 from agentstr.logger import get_logger
 from agentstr.nostr_client import NostrClient
 from agentstr.nostr_mcp_client import NostrMCPClient

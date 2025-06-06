@@ -56,19 +56,12 @@ class SkillPricing(BaseModel):
 
 
 class PriceHandler:
-    class Response(BaseModel):
-        """Response model for the price handler.
+    """Handles price calculations for agent interactions.
 
-        Attributes:
-            can_handle: Whether the agent can handle the request
-            cost_sats: Total cost in satoshis (0 if free or not applicable)
-            user_message: Friendly message to show the user about the action to be taken
-            skills_used: List of skills that would be used, if any
-        """
-        can_handle: bool
-        cost_sats: int = 0
-        user_message: str = ""
-        skills_used: List[str] = []
+    Attributes:
+        llm_callable: Callable function for LLM interactions
+        _chat_history: Dictionary to store chat history by thread ID
+    """
 
     def __init__(self, llm_callable: Callable[[str], str]):
         self.llm_callable = llm_callable
@@ -83,13 +76,13 @@ class PriceHandler:
         total_cost = 0
         for skill_name in skills_used:
             skill = skill_dict.get(skill_name.lower())
-            if skill and skill.pricing.base_price > 0:
-                total_cost += skill.pricing.base_price
+            if skill:
+                total_cost += skill.pricing.calculate_price()
         return total_cost
 
     def _calculate_base_cost(self, agent_card: "AgentCard") -> int:
         """Calculate base cost from agent card."""
-        return agent_card.satoshis or 0
+        return agent_card.calculate_base_cost() if agent_card.base_pricing else 0
 
     def _can_handle_request(self, result: dict) -> bool:
         """Determine if request can be handled."""
@@ -99,7 +92,7 @@ class PriceHandler:
         """Extract skills used from result."""
         return result.get("skills_used", [])
 
-    async def handle(self, user_message: str, agent_card: "AgentCard", thread_id: str | None = None) -> "PriceHandler.Response":
+    async def handle(self, user_message: str, agent_card: "AgentCard", thread_id: str | None = None) -> Dict[str, Any]:
         """Determine if an agent can handle a user's request and calculate the cost.
 
         This function uses an LLM to analyze whether the agent's skills match the user's request
@@ -111,9 +104,12 @@ class PriceHandler:
             thread_id: Optional thread ID for conversation context.
 
         Returns:
-            PriceHandler.Response
+            Dictionary containing:
+                can_handle: Whether the agent can handle the request
+                cost_sats: Total cost in satoshis (0 if free or not applicable)
+                user_message: Friendly message to show the user about the action to be taken
+                skills_used: List of skills that would be used, if any
         """
-
         # Check chat history
         if thread_id:
             if thread_id in self._chat_history:
@@ -174,42 +170,36 @@ Respond with a JSON object with these fields:
 
                 # Calculate total cost based on skills used
                 skill_dict = self._create_skill_dict(agent_card)
-                skill_cost = 0
+                skill_cost = self._calculate_skill_cost(skills_used, skill_dict)
                 
-                if can_handle:
-                    for skill_name in skills_used:
-                        skill = skill_dict.get(skill_name.lower())
-                        if skill:
-                            skill_cost += skill.pricing.calculate_price()
-                
-                base_cost = agent_card.satoshis or 0
+                base_cost = self._calculate_base_cost(agent_card)
                 total_cost = skill_cost + base_cost
 
                 logger.debug(f"Router response: {can_handle}, {total_cost}, {user_message}, {skills_used}")
-                return self.Response(
-                    can_handle=can_handle,
-                    cost_sats=total_cost,
-                    user_message=user_message,
-                    skills_used=skills_used,
-                )
+                return {
+                    "can_handle": can_handle,
+                    "cost_sats": total_cost,
+                    "user_message": user_message,
+                    "skills_used": skills_used,
+                }
 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.error(f"Error parsing LLM response: {e!s}")
-                return self.Response(
-                    can_handle=False,
-                    cost_sats=0,
-                    user_message="Error processing request",
-                    skills_used=[],
-                )
+                return {
+                    "can_handle": False,
+                    "cost_sats": 0,
+                    "user_message": "Error processing request",
+                    "skills_used": [],
+                }
 
         except Exception as e:
             logger.error(f"Error in price handler: {e!s}")
-            return self.Response(
-                can_handle=False,
-                cost_sats=0,
-                user_message="Error processing request",
-                skills_used=[],
-            )
+            return {
+                "can_handle": False,
+                "cost_sats": 0,
+                "user_message": "Error processing request",
+                "skills_used": [],
+            }
 
 
 def default_price_handler(base_url: str | None = None, api_key: str | None = None, model_name: str | None = None) -> PriceHandler:
