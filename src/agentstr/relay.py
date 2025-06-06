@@ -167,8 +167,8 @@ class EventRelay:
         logger.debug(f"Sending note subscription: {json.dumps(subscription)}")
         latest_timestamp = filters.since or get_timestamp()
         while True:
-            async with connect(self.relay) as ws:
-                try:
+            try:
+                async with connect(self.relay) as ws:
                     await ws.send(json.dumps(subscription))
                     while True:
                         response = await ws.recv()
@@ -187,12 +187,12 @@ class EventRelay:
                             except Exception as e:
                                 logger.error(f"Error in event_listener callback: {e}")
                         await asyncio.sleep(0)
-                except Exception as e:
-                    logger.warning(f"Connection closed in event_listener at {int(time.time())} trying again: {e}")
-                    filters.since = latest_timestamp + 1
-                    subscription = create_subscription(filters)
-                    logger.debug(f"Sending event subscription: {json.dumps(subscription)}")
-                    await asyncio.sleep(0)
+            except Exception as e:
+                logger.warning(f"Connection closed in event_listener at {int(time.time())} trying again: {e}")
+                filters.since = latest_timestamp + 1
+                subscription = create_subscription(filters)
+                logger.debug(f"Sending event subscription: {json.dumps(subscription)}")
+                await asyncio.sleep(0)
 
     async def direct_message_listener(self, filters: Filters, callback: Callable[[Event, str], None], event_cache: ExpiringDict, lock: asyncio.Lock):
         """Listen for direct messages and call the callback with decrypted content."""
@@ -200,8 +200,8 @@ class EventRelay:
         logger.debug(f"Sending DM subscription: {json.dumps(subscription)}")
         latest_timestamp = filters.since or get_timestamp()
         while True:
-            async with connect(self.relay) as ws:
-                try:
+            try:
+                async with connect(self.relay) as ws:
                     await ws.send(json.dumps(subscription))
                     while True:
                         response = await ws.recv()
@@ -223,9 +223,9 @@ class EventRelay:
                                 except Exception as e:
                                     logger.error(f"Error in direct_message_listener callback: {e}")
                         await asyncio.sleep(0)
-                except Exception as e:
-                    logger.warning(f"Connection closed in direct_message_listener at {int(time.time())} trying again: {e}")
-                    filters.since = latest_timestamp + 1
-                    subscription = create_subscription(filters)
-                    logger.debug(f"Sending DM subscription: {json.dumps(subscription)}")
-                    await asyncio.sleep(0)
+            except Exception as e:
+                logger.warning(f"Connection closed in direct_message_listener at {int(time.time())} trying again: {e}")
+                filters.since = latest_timestamp + 1
+                subscription = create_subscription(filters)
+                logger.debug(f"Sending DM subscription: {json.dumps(subscription)}")
+                await asyncio.sleep(0)

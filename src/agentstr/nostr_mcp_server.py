@@ -5,6 +5,7 @@ from typing import Any
 
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.tools.tool_manager import ToolManager
+from pydantic import BaseModel
 from pynostr.event import Event
 
 from agentstr.logger import get_logger
@@ -14,17 +15,32 @@ logger = get_logger(__name__)
 
 
 def tool(**kwargs):
-    """
-    Decorator to mark a function as a tool with extra parameters for registration via add_tool.
+    """Decorator to mark a function as a tool with extra parameters for registration via add_tool.
+
     Usage:
         @tool(name="mytool", description="desc", satoshis=100)
         def myfunc(...): ...
+
     The parameters are attached to the function as __tool_params__.
     """
     def decorator(fn):
         setattr(fn, "__tool_params__", kwargs)
         return fn
     return decorator
+
+
+def stringify_result(result: Any) -> str:
+    """Convert a result to a string."""
+    logger.debug(f"Stringifying result: {result}")
+    if isinstance(result, dict) or isinstance(result, list):
+        logger.debug("Result is dict or list")
+        return json.dumps(result)
+    elif isinstance(result, BaseModel):
+        logger.debug("Result is BaseModel")
+        return result.model_dump_json()
+    else:
+        logger.debug(f"Result is other type ({type(result)}): {result}")
+        return str(result)
 
 
 class NostrMCPServer:
@@ -87,7 +103,7 @@ class NostrMCPServer:
             } for tool in self.tool_manager.list_tools()],
         }
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> str | None:
         """Execute a registered tool by name with provided arguments.
 
         Args:
@@ -100,10 +116,15 @@ class NostrMCPServer:
         Raises:
             ToolError: If the tool is not found.
         """
+        logger.info(f"Calling tool: {name} with arguments: {arguments}")
         tool = self.tool_manager.get_tool(name)
         if not tool:
             raise ToolError(f"Unknown tool: {name}")
-        return await tool.fn(**arguments)
+        result = await tool.fn(**arguments)
+        logger.info(f"Tool call result: {result}")
+        if result is None:
+            return None
+        return stringify_result(result)
 
     async def _direct_message_callback(self, event: Event, message: str):
         """Handle incoming direct messages to process tool calls or list requests.
@@ -130,7 +151,7 @@ class NostrMCPServer:
                     async def on_success():
                         logger.info(f"Payment succeeded for {tool_name}")
                         result = await self.call_tool(tool_name, arguments)
-                        response = {"content": [{"type": "text", "text": str(result)}]}
+                        response = {"content": [{"type": "text", "text": result}]}
                         logger.debug(f"On success response: {response}")
                         await self.client.send_direct_message(event.pubkey, json.dumps(response))
 
@@ -145,7 +166,7 @@ class NostrMCPServer:
                             invoice=invoice,
                             callback=on_success,
                             unsuccess_callback=on_failure,
-                            timeout=120,
+                            timeout=300,
                         ),
                     ))
                 else:
