@@ -4,7 +4,7 @@ load_dotenv()
 
 import os
 
-from agentstr import NostrMCPServer
+from agentstr import NostrMCPServer, tool
 
 # Define relays and private key
 relays   = os.getenv("NOSTR_RELAYS").split(",")
@@ -19,11 +19,13 @@ async def add(a: int, b: int) -> int:
     return a + b
 
 # Multiplication tool
+@tool(satoshis=3)
 async def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
     return a * b
 
 # Weather tool
+@tool(satoshis=5)
 async def get_weather(city: str) -> str:
     """Get weather for a given city."""
     return f"It's always sunny in {city}!"
@@ -36,12 +38,8 @@ async def run():
         relays=relays,
         private_key=private_key,
         nwc_str=nwc_str,
+        tools=[add, multiply, get_weather],
     )
-
-    # Add tools
-    server.add_tool(add) # Free tool
-    server.add_tool(multiply, satoshis=3) # Premium tool
-    server.add_tool(get_weather, satoshis=5) # Premium tool
 
     # Start the server
     await server.start()

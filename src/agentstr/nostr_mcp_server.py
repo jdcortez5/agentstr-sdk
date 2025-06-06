@@ -13,6 +13,20 @@ from agentstr.nostr_client import NostrClient
 logger = get_logger(__name__)
 
 
+def tool(**kwargs):
+    """
+    Decorator to mark a function as a tool with extra parameters for registration via add_tool.
+    Usage:
+        @tool(name="mytool", description="desc", satoshis=100)
+        def myfunc(...): ...
+    The parameters are attached to the function as __tool_params__.
+    """
+    def decorator(fn):
+        setattr(fn, "__tool_params__", kwargs)
+        return fn
+    return decorator
+
+
 class NostrMCPServer:
     """Model Context Protocol (MCP) server running on the Nostr protocol.
 
@@ -20,7 +34,8 @@ class NostrMCPServer:
     with optional payment requirements handled through NWC.
     """
     def __init__(self, display_name: str, nostr_client: NostrClient | None = None,
-                 relays: list[str] | None = None, private_key: str | None = None, nwc_str: str | None = None):
+                 relays: list[str] | None = None, private_key: str | None = None, nwc_str: str | None = None,
+                 tools: list[Callable[..., Any]] = []):
         """Initialize the MCP server.
 
         Args:
@@ -34,6 +49,8 @@ class NostrMCPServer:
         self.display_name = display_name
         self.tool_to_sats_map = {}
         self.tool_manager = ToolManager()
+        for tool in tools:
+            self.add_tool(tool)
 
     def add_tool(self, fn: Callable[..., Any], name: str | None = None,
                  description: str | None = None, satoshis: int | None = None):
@@ -45,6 +62,11 @@ class NostrMCPServer:
             description: Description of the tool (optional).
             satoshis: Satoshis required to call the tool (optional).
         """
+        tool_params = getattr(fn, "__tool_params__", None)
+        if tool_params:
+            name = name or tool_params.get("name")
+            description = description or tool_params.get("description")
+            satoshis = satoshis or tool_params.get("satoshis")
         if satoshis:
             self.tool_to_sats_map[name or fn.__name__] = satoshis
         self.tool_manager.add_tool(fn=fn, name=name, description=description)
