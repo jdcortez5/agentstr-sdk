@@ -42,11 +42,11 @@ class NostrClient:
             if private_key:
                 self.private_key = PrivateKey.from_nsec(private_key)
                 self.public_key = self.private_key.public_key
-                logger.debug(f"Initialized with public key: {self.public_key.bech32()}")
+                logger.info(f"Initialized Nostr client with public key: {self.public_key.bech32()}")
             else:
                 self.private_key = None
                 self.public_key = None
-                logger.warning("No private key provided, client will be in read-only mode")
+                logger.warning("No private key provided, Nostr client will be in read-only mode")
 
             self.nwc_str = nwc_str
             if nwc_str:
