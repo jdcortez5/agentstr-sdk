@@ -94,6 +94,19 @@ class NostrClient:
 
         return await self.relay_manager.get_events(filters)
 
+    async def read_posts_by_author(self, pubkey: str | PrivateKey, limit: int = 10) -> list[Event]:
+        """Read posts by a specific author from Nostr relays.
+
+        Args:
+            pubkey: The author's public key in hex or bech32 format.
+            limit: Maximum number of posts to retrieve.
+
+        Returns:
+            List of Events.
+        """
+        filters = Filters(limit=limit, kinds=[EventKind.TEXT_NOTE], authors=[get_public_key(pubkey if isinstance(pubkey, str) else pubkey.hex()).hex()])
+        return await self.relay_manager.get_events(filters)
+
     async def get_metadata_for_pubkey(self, public_key: str | PrivateKey = None) -> Metadata | None:
         """Fetch metadata for a public key (or self if none provided)."""
         public_key = get_public_key(public_key if isinstance(public_key, str) else public_key.hex()) if public_key else self.public_key
